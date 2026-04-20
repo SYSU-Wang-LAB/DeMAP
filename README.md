@@ -41,7 +41,14 @@ git clone [https://github.com/your_github_username/DeMAP.git](https://github.com
 cd DeMAP
 ```
 
+📂 Data Preparation (Human GRCh38 Example)
+1. Download Reference Genome and Annotation
+We recommend downloading the primary assembly and GTF from GENCODE:
 
+Bash
+wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz)
+wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz)
+gunzip GRCh38.primary_assembly.genome.fa.gz gencode.v49.basic.annotation.gtf.gz
 
 
 
