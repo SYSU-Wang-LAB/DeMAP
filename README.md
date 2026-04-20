@@ -39,7 +39,7 @@ conda install -c conda-forge numpy pandas scipy statsmodels biopython
 # Download DeMAP
 git clone [https://github.com/your_github_username/DeMAP.git](https://github.com/your_github_username/DeMAP.git)
 cd DeMAP
-
+```
 
 
 
