@@ -72,15 +72,15 @@ python DeMAP_v1.0.0/build_index.py \
 
 **Index Parameters:**
 
-* -g: Reference genome FASTA
-* -r: rRNA FASTA
-* -p: Number of threads
-* -prefix: Prefix for the index files
-* -o: Output directory for the index files
+*-g: Reference genome FASTA
+*-r: rRNA FASTA
+*-p: Number of threads
+*-prefix: Prefix for the index files
+*-o: Output directory for the index files
 
 ## 🚀 Quick Start
-Input Requirements: DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are natively supported. 
-(Note: For stranded libraries like dUTP or SMART methods, reads should be in the same direction as the sense strand, usually R2).
+**Input Requirements:** DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are supported. 
+(Note: Reads should be in the same direction as the sense strand. For stranded libraries like dUTP or SMART methods, usually R2).
 
 **Running DeMAP**: Execute the main program DeMAP_v1.py to complete the entire pipeline: alignment, methylation site calling, and annotation.
 
