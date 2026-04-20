@@ -102,7 +102,7 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
     -fdr 0.005 > test.log 2>&1 &
 ```
 
-**Parameters Overview**
+## Parameters Overview
 **Required Parameters:**
 
 | Parameters | Interpretation |
@@ -119,14 +119,18 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
 
 | Parameters | Interpretation |
 | :---: | :---: |
-| -p | number of CPU threads to use (default: 8) |
-| -m | maximum number of allowed mismatches during alignment (default: 2) |
-| -max | max multi-mapped regions allowed for EM model (default: 5) |
-| -AGcov | minimum sequencing coverage (A+G) for calling a site (default: 15) |
-| -Acov | minimum number of unconverted A reads required (default: 5) |
-| -ratio | minimum modification ratio threshold (default: 0.05) |
-| -fdr | significance threshold (FDR) for methylation calling (default: 0.005) |
+| -p | number of CPU threads to use|
+| -m | maximum number of allowed mismatches during alignment|
+| -max | max multi-mapped regions allowed for EM model|
+| -AGcov | minimum sequencing coverage (A+G) for calling a site|
+| -Acov | minimum number of unconverted A reads required|
+| -ratio | minimum modification ratio threshold|
+| -fdr | significance threshold (FDR) for methylation calling|
 
+For a complete list of parameters and detailed information, please run:
+```bash
+python DeMAP_v1.0.0/DeMAP_v1.py --help
+```
 
 ## 📄 Output Format
 The output is a comprehensive table detailing the identified methylation sites.
