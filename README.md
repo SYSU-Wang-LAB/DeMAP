@@ -1,5 +1,3 @@
-# DeMAP
-A computational framework for precisely profiling single-base resolution RNA adenosine methylation from deamination sequencing data.
 # DeMAP: Deamination-based Methylation Analysis Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -41,3 +39,23 @@ conda install -c conda-forge numpy pandas scipy statsmodels biopython
 # Download DeMAP
 git clone [https://github.com/your_github_username/DeMAP.git](https://github.com/your_github_username/DeMAP.git)
 cd DeMAP
+
+
+
+
+
+
+
+
+📚 Citation
+If you use DeMAP in your research, please cite:
+
+[Author Names]. Computational framework for deamination-based RNA adenosine methylation analysis. (Manuscript in preparation)
+
+🤝 Maintainers
+DeMAP is developed and maintained by Zehong Wu (wuzh93@mail2.sysu.edu.cn).
+
+📜 License
+DeMAP is released under the MIT License.
+
+Note: Portions of the base-conversion and index-building code are referenced from GLORI-tools.
