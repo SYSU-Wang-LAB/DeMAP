@@ -45,8 +45,8 @@ cd DeMAP
 **1. Download Reference Genome and Annotation**
 We recommend downloading the primary assembly and GTF from GENCODE:
 ```bash
-wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz)
-wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz)
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz
 gunzip GRCh38.primary_assembly.genome.fa.gz gencode.v49.basic.annotation.gtf.gz
 ```
 
@@ -70,10 +70,20 @@ python DeMAP_v1.0.0/build_index.py \
     -o DeMAP_v1.0.0/indexfile
 ```
 
-## 🚀 Quick Start
-Input Requirements: DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are natively supported. (Note: For stranded libraries like dUTP or SMART methods, reads should be in the same direction as the sense strand, usually R2).
+**Index Parameters:**
 
-Run the main pipeline:
+* -g: Reference genome FASTA
+* -r: rRNA FASTA
+* -p: Number of threads
+* -prefix: Prefix for the index files
+* -o: Output directory for the index files
+
+## 🚀 Quick Start
+Input Requirements: DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are natively supported. 
+(Note: For stranded libraries like dUTP or SMART methods, reads should be in the same direction as the sense strand, usually R2).
+
+**Running DeMAP**: Execute the main program DeMAP_v1.py to complete the entire pipeline: alignment, methylation site calling, and annotation.
+
 ```bash
 nohup python DeMAP_v1.0.0/DeMAP_v1.py \
     -software DeMAP_v1.0.0 \
@@ -92,6 +102,65 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
     -fdr 0.005 > test.log 2>&1 &
 ```
 
+**Parameters Overview**
+**Required Parameters:**
+
+| Parameters | Interpretation |
+| :---: | :---: |
+| -software | path to the DeMAP_v1.0.0 directory |
+| -genomedir | path to the directory containing genome indices |
+| -fa | path to the reference genome FASTA file |
+| -gtf | path to the gene annotation GTF file |
+| -q | input sequencing data in FASTQ format (.fq or .fq.gz) |
+| -pre | prefix for all output result files |
+| -o | directory where the results will be saved |
+
+**Optional Parameters:**
+
+| Parameters | Interpretation |
+| :---: | :---: |
+| -p | number of CPU threads to use (default: 8) |
+| -m | maximum number of allowed mismatches during alignment (default: 2) |
+| -max | max multi-mapped regions allowed for EM model (default: 5) |
+| -AGcov | minimum sequencing coverage (A+G) for calling a site (default: 15) |
+| -Acov | minimum number of unconverted A reads required (default: 5) |
+| -ratio | minimum modification ratio threshold (default: 0.05) |
+| -fdr | significance threshold (FDR) for methylation calling (default: 0.005) |
+
+
+## 📄 Output Format
+The output is a comprehensive table detailing the identified methylation sites.
+
+| Columns | Interpretation |
+| :---: | :---: |
+| Chrome | chromosome |
+| Start | start position |
+| End | end position |
+| Sitename | unique site name |
+| Motif | 5-mer motif |
+| Strand | +/- |
+| Acount | A counts (unconverted A reads) |
+| AGcount | A + G counts |
+| ratio | unconverted ratio |
+| background_ratio | background unconverted ratio |
+| methy_level | modification level |
+| TCcount | T + C counts (mismatch) in A position |
+| Coverage | total coverage |
+| mut_ratio | mismatch / total coverage |
+| A_in_readstart | number of unconverted A bases located at read start |
+| estimated_m6Amlevel | estimated m6Am modification level (isoform) |
+| stop_ratio | truncation rate: (downstream counts - upstream counts) / downstream counts |
+| p_methylation_fdr | FDR adjusted P value for methylation modification |
+| p_m6Am_fdr | FDR adjusted P value for m6Am modification |
+| p_m1A_fdr | FDR adjusted P value for m1A modification |
+| mod_type | modification type (m6A/m6Am/m1A) |
+| disTSS | distance from site to annotated transcript start site |
+| ensg | Ensembl Gene ID |
+| gene_name | gene symbol |
+| gene_type | gene type |
+| location | site location |
+| enst | Ensembl Transcript ID |
+| transcript_type | transcript type (Ensembl_canonical/Basic/Others) |
 
 
 ## 📚 Citation
