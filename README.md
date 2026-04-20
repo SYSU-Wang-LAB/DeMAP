@@ -41,42 +41,68 @@ git clone [https://github.com/your_github_username/DeMAP.git](https://github.com
 cd DeMAP
 ```
 
+## 📂 Data Preparation (Human GRCh38 Example)
+**1. Download Reference Genome and Annotation**
+We recommend downloading the primary assembly and GTF from GENCODE:
+```bash
 wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz)
 wget [https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.basic.annotation.gtf.gz)
 gunzip GRCh38.primary_assembly.genome.fa.gz gencode.v49.basic.annotation.gtf.gz
+```
 
-📂 Data Preparation (Human GRCh38 Example)
-1. Download Reference Genome and Annotation
-We recommend downloading the primary assembly and GTF from GENCODE:
+**2.Prepare rRNA Sequences**
+(Note: A Human_rRNA.fa file is already included in the DeMAP_v1.0.0 folder. You can skip this step if you are working with human data.)
+
+To manually download and format human rRNA for filtering:
+```bash
+efetch -db nucleotide -id "NR_003287.2,NR_003286.2,NR_003285.2,NR_023363.1" -format fasta > Download_rRNA.fa
+sed -e '/5\.8S ribosomal/c\>5.8SrRNA' -e '/18S ribosomal/c\>18SrRNA' -e '/28S ribosomal/c\>28SrRNA' -e '/5S ribosomal/c\>5SrRNA' Download_rRNA.fa > Human_rRNA.fa
+```
+
+**3. Build DeMAP Index**
+DeMAP requires a custom index for the A-to-G and T-to-C converted genomes.
+```bash
+python DeMAP_v1.0.0/build_index.py \
+    -g GRCh38.primary_assembly.genome.fa \
+    -r Human_rRNA.fa \
+    -p 6 \
+    -prefix hg38 \
+    -o DeMAP_v1.0.0/indexfile
+```
+
+## 🚀 Quick Start
+Input Requirements: DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are natively supported. (Note: For stranded libraries like dUTP or SMART methods, reads should be in the same direction as the sense strand, usually R2).
+
+Run the main pipeline:
+```bash
+nohup python DeMAP_v1.0.0/DeMAP_v1.py \
+    -software DeMAP_v1.0.0 \
+    -genomedir DeMAP_v1.0.0/indexfile \
+    -fa GRCh38.primary_assembly.genome.fa \
+    -gtf gencode.v49.basic.annotation.gtf \
+    -q test.fq.gz \
+    -pre test_sample \
+    -o result_DeMAP \
+    -p 8 \
+    -m 2 \
+    -max 5 \
+    -AGcov 15 \
+    -Acov 5 \
+    -ratio 0.05 \
+    -fdr 0.005 > test.log 2>&1 &
+```
 
 
-Parameter,Description,Default
--software,Path to the DeMAP software directory,Required
--genomedir,Path to the index directory built in the previous step,Required
--fa,Reference genome FASTA file,Required
--gtf,Reference annotation GTF file,Required
--q,Input FASTQ file (supports .gz),Required
--pre,Prefix for output files,Required
--o,Output directory,Required
--p,Number of threads,8
--m,Number of allowed mismatches for alignment,2
--max,Max multi-mapped regions allowed for EM model,5
--AGcov,Minimum sequencing coverage (A + G),15
--Acov,Minimum unconverted A base count,5
--ratio,Minimum modification ratio,0.05
--fdr,FDR cutoff for significant methylation,0.005
 
-
-
-📚 Citation
+## 📚 Citation
 If you use DeMAP in your research, please cite:
 
 [Author Names]. Computational framework for deamination-based RNA adenosine methylation analysis. (Manuscript in preparation)
 
-🤝 Maintainers
+## 🤝 Maintainers
 DeMAP is developed and maintained by Zehong Wu (wuzh93@mail2.sysu.edu.cn).
 
-📜 License
+## 📜 License
 DeMAP is released under the MIT License.
 
 Note: Portions of the base-conversion and index-building code are referenced from GLORI-tools.
