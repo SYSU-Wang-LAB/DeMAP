@@ -47,12 +47,13 @@ Once downloaded (typically as `DeMAP-main.zip`), unzip it and navigate into the 
 ```bash
 unzip DeMAP-main.zip
 cd DeMAP-main
-
+```
 **Option 2: Clone via Git**
 Alternatively, you can clone the repository using Git:
-
+```bash
 git clone [https://github.com/ZehongW/DeMAP.git](https://github.com/ZehongW/DeMAP.git)
 cd DeMAP
+```
 
 ## 📂 Data Preparation (Human GRCh38 Example)
 **1. Download Reference Genome and Annotation**
