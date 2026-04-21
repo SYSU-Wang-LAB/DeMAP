@@ -12,7 +12,7 @@ These sequencing methods convert unmethylated adenosines (A) to inosines (I, rea
 * **Multiplexed Modification Discrimination**: Integrates spatial topological features and biochemical signatures (truncation/mismatch rates) to decouple and identify m⁶A, m⁶Am, and m¹A accurately.
 
 ## 📊 Pipeline Overview
-![DeMAP Pipeline](docs/images/pipeline.png)
+![DeMAP Pipeline](pipeline.png)
 
 ## 🛠️ Dependencies & Installation
 
