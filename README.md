@@ -121,25 +121,25 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
 
 | Parameters | Interpretation |
 | :---: | :--- |
-| -software | path to the DeMAP_v1.0.0 directory |
-| -genomedir | path to the directory containing genome indices |
-| -fa | path to the reference genome FASTA file |
-| -gtf | path to the gene annotation GTF file |
-| -q | input sequencing data in FASTQ format (.fq or .fq.gz) |
-| -pre | prefix for all output result files |
-| -o | directory where the results will be saved |
+| -software | Path to the DeMAP_v1.0.0 directory |
+| -genomedir | Path to the directory containing genome indices |
+| -fa | Path to the reference genome FASTA file |
+| -gtf | Path to the gene annotation GTF file |
+| -q | Input sequencing data in FASTQ format (.fq or .fq.gz) |
+| -pre | Prefix for all output result files |
+| -o | Directory where the results will be saved |
 
 **Optional Parameters:**
 
 | Parameters | Interpretation |
 | :---: | :--- |
-| -p | number of CPU threads to use|
-| -m | maximum number of allowed mismatches during alignment|
-| -max | max multi-mapped regions allowed for EM model|
-| -AGcov | minimum sequencing coverage (A+G) for calling a site|
-| -Acov | minimum number of unconverted A reads required|
-| -ratio | minimum modification ratio threshold|
-| -fdr | significance threshold (FDR) for methylation calling|
+| -p | Number of threads. When set above 20, the EM model may consume up to ~100 GB of memory.|
+| -m | Maximum number of allowed mismatches during alignment|
+| -max | Max multi-mapped regions allowed for EM model|
+| -AGcov | Minimum sequencing coverage (A+G) for calling a site|
+| -Acov | Minimum number of unconverted A reads required|
+| -ratio | Minimum modification ratio threshold|
+| -fdr | Significance threshold (FDR) for methylation calling|
 
 For a complete list of parameters and detailed information, please run:
 ```bash
@@ -151,34 +151,34 @@ The output is a comprehensive table detailing the identified methylation sites.
 
 | Columns | Interpretation |
 | :---: | :--- |
-| chrome | chromosome |
-| start | start position |
-| end | end position |
-| sitename | unique site name |
+| chrome | Chromosome |
+| start | Start position |
+| end | End position |
+| sitename | Unique site name |
 | motif | 5-mer motif |
 | strand | +/- |
 | Acount | A counts (unconverted A reads) |
 | AGcount | A + G counts |
-| ratio | unconverted ratio |
-| background_ratio | background unconverted ratio |
-| methy_level | modification level |
+| ratio | Unconverted ratio |
+| background_ratio | Uackground unconverted ratio |
+| methy_level | Modification level |
 | TCcount | T + C counts (mismatch) in A position |
-| coverage | total coverage |
-| mut_ratio | mismatch / total coverage |
-| A_in_readstart | number of unconverted A bases located at read start |
-| estimated_m6Amlevel | estimated m6Am modification level (isoform) |
-| stop_ratio | truncation rate: (downstream counts - upstream counts) / downstream counts |
+| coverage | Total coverage |
+| mut_ratio | Mismatch / total coverage |
+| A_in_readstart | Number of unconverted A bases located at read start |
+| estimated_m6Amlevel | Estimated m6Am modification level (isoform) |
+| stop_ratio | Truncation rate: (downstream counts - upstream counts) / downstream counts |
 | p_methylation_fdr | FDR adjusted P value for methylation modification |
 | p_m6Am_fdr | FDR adjusted P value for m6Am modification |
 | p_m1A_fdr | FDR adjusted P value for m1A modification |
-| mod_type | modification type (m6A/m6Am/m1A) |
-| disTSS | distance from site to annotated transcript start site |
+| mod_type | Modification type (m6A/m6Am/m1A) |
+| disTSS | Distance from site to annotated transcript start site |
 | ensg | Ensembl Gene ID |
-| gene_name | gene symbol |
-| gene_type | gene type |
-| location | site location |
+| gene_name | Gene symbol |
+| gene_type | Gene type |
+| location | Site location |
 | enst | Ensembl Transcript ID |
-| transcript_type | transcript type (Ensembl_canonical/Basic/Others) |
+| transcript_type | Transcript type (Ensembl_canonical/Basic/Others) |
 
 
 ## 📚 Citation
