@@ -70,13 +70,13 @@ python DeMAP_v1.0.0/build_index.py \
     -o DeMAP_v1.0.0/indexfile
 ```
 
-**Index Parameters:**
+**Parameters:**
 
-*-g: Reference genome FASTA
-*-r: rRNA FASTA
-*-p: Number of threads
-*-prefix: Prefix for the index files
-*-o: Output directory for the index files
+* `-g`: Reference genome FASTA
+* `-r`: rRNA FASTA
+* `-p`: Number of threads
+* `-prefix`: Prefix for the index files
+* `-o`: Output directory for the index files
 
 ## 🚀 Quick Start
 **Input Requirements:** DeMAP takes pre-processed FASTQ files (adapters and PCR duplicates removed) as input. Currently, only single-end data is supported. Input files in .gz format are supported. 
@@ -106,7 +106,7 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
 **Required Parameters:**
 
 | Parameters | Interpretation |
-| :---: | :---: |
+| :---: | :--- |
 | -software | path to the DeMAP_v1.0.0 directory |
 | -genomedir | path to the directory containing genome indices |
 | -fa | path to the reference genome FASTA file |
@@ -118,7 +118,7 @@ nohup python DeMAP_v1.0.0/DeMAP_v1.py \
 **Optional Parameters:**
 
 | Parameters | Interpretation |
-| :---: | :---: |
+| :---: | :--- |
 | -p | number of CPU threads to use|
 | -m | maximum number of allowed mismatches during alignment|
 | -max | max multi-mapped regions allowed for EM model|
@@ -136,7 +136,7 @@ python DeMAP_v1.0.0/DeMAP_v1.py --help
 The output is a comprehensive table detailing the identified methylation sites.
 
 | Columns | Interpretation |
-| :---: | :---: |
+| :---: | :--- |
 | Chrome | chromosome |
 | Start | start position |
 | End | end position |
