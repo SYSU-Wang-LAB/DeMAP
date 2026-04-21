@@ -56,7 +56,7 @@ cd DeMAP
 ```
 
 ## 📂 Data Preparation (Human GRCh38 Example)
-**1. Download Reference Genome and Annotation**
+**1. Download Reference Genome and Annotation.**
 We recommend downloading the primary assembly and GTF from GENCODE:
 ```bash
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz
@@ -64,7 +64,7 @@ wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencod
 gunzip GRCh38.primary_assembly.genome.fa.gz gencode.v49.basic.annotation.gtf.gz
 ```
 
-**2.Prepare rRNA Sequences**
+**2.Prepare rRNA Sequences.**
 (Note: Human_rRNA.fa file is already included in the DeMAP_v1.0.0 folder. You can skip this step if you are working with human data.)
 
 To manually download and format human rRNA:
@@ -73,7 +73,7 @@ efetch -db nucleotide -id "NR_003287.2,NR_003286.2,NR_003285.2,NR_023363.1" -for
 sed -e '/5\.8S ribosomal/c\>5.8SrRNA' -e '/18S ribosomal/c\>18SrRNA' -e '/28S ribosomal/c\>28SrRNA' -e '/5S ribosomal/c\>5SrRNA' Download_rRNA.fa > Human_rRNA.fa
 ```
 
-**3. Build DeMAP Index**
+**3. Build DeMAP Index.**
 DeMAP requires a custom index for the A-to-G and T-to-C converted genomes.
 ```bash
 python DeMAP_v1.0.0/build_index.py \
@@ -192,4 +192,4 @@ DeMAP is developed and maintained by Zehong Wu (wuzh93@mail2.sysu.edu.cn).
 ## 📜 License
 DeMAP is released under the MIT License.
 
-Note: Portions of the base-conversion and index-building code are referenced from GLORI-tools.
+We sincerely thank the authors of GLORI-tools for making their source code publicly available, which greatly facilitated the development of our index-building and mapping modules.
