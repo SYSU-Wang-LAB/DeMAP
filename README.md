@@ -35,6 +35,7 @@ conda activate demap_env
 # Install dependencies
 conda install -c bioconda star bowtie samtools pysam
 conda install -c conda-forge numpy pandas scipy statsmodels biopython
+```
 
 ### Download DeMAP
 
