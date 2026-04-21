@@ -36,10 +36,22 @@ conda activate demap_env
 conda install -c bioconda star bowtie samtools pysam
 conda install -c conda-forge numpy pandas scipy statsmodels biopython
 
-# Download DeMAP
-git clone https://github.com/ZehongW/DeMAP.git
+### Download DeMAP
+
+You can acquire DeMAP using either of the following methods:
+
+**Option 1: Direct Download (ZIP)**
+You can directly download the repository as a ZIP archive by clicking the **"Code"** green button on this GitHub page and selecting **"Download ZIP"**. 
+Once downloaded (typically as `DeMAP-main.zip`), unzip it and navigate into the directory:
+```bash
+unzip DeMAP-main.zip
+cd DeMAP-main
+
+**Option 2: Clone via Git**
+Alternatively, you can clone the repository using Git:
+
+git clone [https://github.com/ZehongW/DeMAP.git](https://github.com/ZehongW/DeMAP.git)
 cd DeMAP
-```
 
 ## 📂 Data Preparation (Human GRCh38 Example)
 **1. Download Reference Genome and Annotation**
