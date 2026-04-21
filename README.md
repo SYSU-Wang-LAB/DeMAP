@@ -51,7 +51,7 @@ cd DeMAP-main
 **Option 2: Clone via Git**
 Alternatively, you can clone the repository using Git:
 ```bash
-git clone [https://github.com/ZehongW/DeMAP.git](https://github.com/ZehongW/DeMAP.git)
+git clone https://github.com/ZehongW/DeMAP.git
 cd DeMAP
 ```
 
@@ -65,9 +65,9 @@ gunzip GRCh38.primary_assembly.genome.fa.gz gencode.v49.basic.annotation.gtf.gz
 ```
 
 **2.Prepare rRNA Sequences**
-(Note: A Human_rRNA.fa file is already included in the DeMAP_v1.0.0 folder. You can skip this step if you are working with human data.)
+(Note: Human_rRNA.fa file is already included in the DeMAP_v1.0.0 folder. You can skip this step if you are working with human data.)
 
-To manually download and format human rRNA for filtering:
+To manually download and format human rRNA:
 ```bash
 efetch -db nucleotide -id "NR_003287.2,NR_003286.2,NR_003285.2,NR_023363.1" -format fasta > Download_rRNA.fa
 sed -e '/5\.8S ribosomal/c\>5.8SrRNA' -e '/18S ribosomal/c\>18SrRNA' -e '/28S ribosomal/c\>28SrRNA' -e '/5S ribosomal/c\>5SrRNA' Download_rRNA.fa > Human_rRNA.fa
