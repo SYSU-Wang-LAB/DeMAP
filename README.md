@@ -151,19 +151,19 @@ The output is a comprehensive table detailing the identified methylation sites.
 
 | Columns | Interpretation |
 | :---: | :--- |
-| Chrome | chromosome |
-| Start | start position |
-| End | end position |
-| Sitename | unique site name |
-| Motif | 5-mer motif |
-| Strand | +/- |
+| chrome | chromosome |
+| start | start position |
+| end | end position |
+| sitename | unique site name |
+| motif | 5-mer motif |
+| strand | +/- |
 | Acount | A counts (unconverted A reads) |
 | AGcount | A + G counts |
 | ratio | unconverted ratio |
 | background_ratio | background unconverted ratio |
 | methy_level | modification level |
 | TCcount | T + C counts (mismatch) in A position |
-| Coverage | total coverage |
+| coverage | total coverage |
 | mut_ratio | mismatch / total coverage |
 | A_in_readstart | number of unconverted A bases located at read start |
 | estimated_m6Amlevel | estimated m6Am modification level (isoform) |
