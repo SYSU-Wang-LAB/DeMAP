@@ -20,7 +20,7 @@ DeMAP is written in Python and operates in a Linux command-line environment. We 
 
 **Required Software:**
 * STAR (v2.7.5+)
-* Bowtie (v1.3+)
+* Bowtie2 (v2.5.2+)
 * Samtools (v1.15+)
 
 **Required Python Modules (Python 3.8+):**
@@ -33,7 +33,7 @@ conda create -n demap_env python=3.8
 conda activate demap_env
 
 # Install dependencies
-conda install -c conda-forge -c bioconda star bowtie samtools pysam numpy pandas scipy statsmodels biopython
+conda install -c conda-forge -c bioconda star bowtie2 samtools pysam numpy pandas scipy statsmodels biopython
 ```
 
 ### Download DeMAP
