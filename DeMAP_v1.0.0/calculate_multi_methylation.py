@@ -24,7 +24,7 @@ group1.add_argument("-pileup", "--pileup", type=str, required=True, help = "Pile
 group1.add_argument("-fa","--fasta",type=str,help="Unconverted genome file in fasta format")
 group1.add_argument("-AGcov","--AGCoverage",type=int, default=15,help="minimum A + G counts. (default:15)")
 group1.add_argument("-Acov","--ACoverage",type=int, default=5,help="minimum A counts. (default:5)")
-group1.add_argument("-ratio","--ARatio",type=float, default=0.03,help="minimum methylation level: A counts / AG counts. (default:0.03)")
+group1.add_argument("-ratio","--ARatio",type=float, default=0.05,help="minimum methylation level: A counts / AG counts. (default:0.05)")
 group1.add_argument("-enrich","--foldenrich",type=float, default=3,help="minimum fold change of methylation level / background methylation level. (default:3)")
 group1.add_argument("-AGRatio","--AGRatio",type=float, default=0.6,help="Filter sites with A+G counts/total counts < AGRatio. (default:0.6)\n"
                     "This parameter is used to filter out mutation sites originating from SNPs.")
@@ -86,7 +86,7 @@ def get_genomedic(filein):
     genomedic = {}
     for seq in SeqIO.parse(filein,"fasta"):
         if seq.id not in genomedic:
-            genomedic[str(seq.id)] = str(seq.seq)
+            genomedic[str(seq.id)] = str(seq.seq).upper()
     return genomedic
 
 def get_motif(chrome,position,strand):
@@ -298,12 +298,12 @@ def A_site_pileup_state(filein,fileout):
                             cleavage_ratio = 0
                         else:
                             rates = np.array([int(n)/int(d) for n, d in [x.split(';') for x in cleavages]])
-                            #计算MAD和修正Z值
+                            #calculate MAD and z-score
                             median = np.median(rates)
                             mad = scipy.stats.median_abs_deviation(rates)
                             modified_z = 0.6745 * (rates - median) / (mad + 1) if mad == 0 else 0.6745 * (rates - median) / mad
                             valid_mask = modified_z < 3
-                            #重新解析原始数据计算加权平均
+                            #calculate mean cleavage ratio
                             nums = np.array([int(x.split(';')[0]) for x in cleavages])
                             dens = np.array([int(x.split(';')[1]) for x in cleavages])
                             cleavage_ratio = nums[valid_mask].sum() / dens[valid_mask].sum() if dens[valid_mask].sum() > 0 else 0
@@ -374,12 +374,12 @@ def A_site_pileup_state(filein,fileout):
                     cleavage_ratio = 0
                 else:
                     rates = np.array([int(n)/int(d) for n, d in [x.split(';') for x in cleavages]])
-                    #计算MAD和修正Z值
+                    #calculate MAD and z-score
                     median = np.median(rates)
                     mad = scipy.stats.median_abs_deviation(rates)
                     modified_z = 0.6745 * (rates - median) / (mad + 1) if mad == 0 else 0.6745 * (rates - median) / mad
                     valid_mask = modified_z < 3
-                    #重新解析原始数据计算加权平均
+                    #calculate mean cleavage ratio
                     nums = np.array([int(x.split(';')[0]) for x in cleavages])
                     dens = np.array([int(x.split(';')[1]) for x in cleavages])
                     cleavage_ratio = nums[valid_mask].sum() / dens[valid_mask].sum() if dens[valid_mask].sum() > 0 else 0
@@ -409,7 +409,7 @@ def A_site_pileup_state(filein,fileout):
 
 
 def output_result(filein,outfile):
-    # 读取数据
+
     df = pd.read_csv(filein, sep="\t")
 
     df["p_methylation_fdr"] = multipletests(df["p_methylation"], method="fdr_bh")[1]
@@ -439,7 +439,7 @@ def output_result(filein,outfile):
         ~mask_m6Am
     )
 
-    df["mod_type"] = "none"  # 默认值
+    df["mod_type"] = "none"  
     df.loc[mask_m1A, "mod_type"] = "m1A"
     df.loc[mask_m6Am, "mod_type"] = "m6Am"
     df.loc[mask_m6A, "mod_type"] = "m6A"

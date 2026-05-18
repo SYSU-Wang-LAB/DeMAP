@@ -10,6 +10,7 @@ import sys
 import os
 import re
 import argparse
+import multiprocessing
 import subprocess
 import itertools
 import time
@@ -30,7 +31,7 @@ group1.add_argument("-fa","--fasta",type=str,help="Unconverted genome file in fa
 group1.add_argument("-q", "--fastq", type=str, default="none", help="Fastq file for single end data,read should be sense strand.\n"
                     "For most widely used standard library: dUTP-based method: R2")
 group1.add_argument("-p", "--Threads", type=str, default='1', help="The number of alignment threads. (defalut:1)")
-group1.add_argument("-t", "--tools", type=str, default="STAR", help="Alignment tools: STAR,bowtie. (defalut:STAR)")
+group1.add_argument("-t", "--tools", type=str, default="STAR", help="Alignment tools: STAR,bowtie2. (defalut:STAR)")
 group1.add_argument("-m", "--mismatch", type=int, default=2, help="Mapping mismatch. (defalut:2)")
 group1.add_argument("-F", "--FilterN", type=str, default='0.5', help="MinOverLread. (defalut:0.5)")
 group1.add_argument("-max", "--maxmap", type=str, default='5', help="Discard multi-mapping reads with more than maxmap mappings. (defalut:5)")
@@ -65,8 +66,8 @@ tooldir = args.software
 genomedir = args.genomedir
 AGgenome = genomedir+"/"+[f for f in os.listdir(genomedir) if f.endswith('AG_conversion.fa')][0]
 TCgenome = genomedir+"/"+[f for f in os.listdir(genomedir) if f.endswith('TC_conversion.fa')][0]
-#rRNAref = genomedir+"/rRNA/"+[f for f in os.listdir(genomedir+"/rRNA/") if f.endswith('rRNA.AG_conversion.fa')][0]
-rRNAref = genomedir+"/rRNA.AG_conversion.fa"
+rRNAref = genomedir+"/rRNA/"+[f for f in os.listdir(genomedir+"/rRNA/") if f.endswith('rRNA.AG_conversion.fa')][0]
+#rRNAref = genomedir+"/rRNA.AG_conversion.fa"
 genome = args.fasta #genomedir+"/"+[f for f in os.listdir(genomedir) if f.endswith('genome.fa')][0]
 fastq = args.fastq
 Threads = args.Threads
@@ -191,19 +192,22 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,maxmap,fl
     # Keep all possible alignments in the pre-alignment stage to enable downstream SAM merging and subsequent score-based filtering
     out_maxmap = "10" if int(maxmap) <= 5 else "20"
 
-    if tool == "bowtie":
-        para_0 = 'bowtie -k 1 -m 1 '
-        para_A = ' -v '+ str(muta_N) if muta_N <= 3 else ' -v 3'
-        para_B = ' --best --strata -p ' + Threads
-        para_C = ' -x '+ reference +" "+ fastq +' -S ' + tmpfile
+
+    if tool == "bowtie2":  # 兼容如果你在命令行里传了 bowtie2
+        para_0 = 'bowtie2 -p ' + str(Threads)
+        para_A = ' -x ' + reference + ' -U ' + fastq
+        para_B = ' --no-unal -S ' + tmpfile
         para_unmap = ' --un ' + unmapfastq
-        para_end = ' 2>' + outputfile +'.output'
-        command = para_0+para_A+para_B+para_C+para_unmap+para_end
+        para_end = ' 2>' + outputfile + '.output'
+
+        command = para_0 + para_A + para_B + para_unmap + para_end
         print(command)
-        subprocess.call(command,shell=True)
+        subprocess.call(command, shell=True)
+        
         print("samtools view -F " + flag + " -@ " + Threads + " -h " + tmpfile +" | samtools sort -@ " + Threads + " -n -O SAM > " + outputfile)
-        subprocess.call("samtools view -F " + flag + " -@ " + Threads + " -h " + tmpfile + " | samtools sort -@ " + Threads + " -n -O SAM > " + outputfile,shell=True)
-        subprocess.call("rm -f " + tmpfile,shell=True)
+        subprocess.call("samtools view -F " + flag + " -@ " + Threads + " -h " + tmpfile + " | samtools sort -@ " + Threads + " -n -O SAM > " + outputfile, shell=True)
+        subprocess.call("rm -f " + tmpfile, shell=True)
+
 
     elif tool == "STAR":
         para_0 = "STAR --runThreadN "+ Threads
@@ -308,7 +312,7 @@ if __name__ == "__main__":
     final_out_prx = outputdir2 + "/" + outname_prx
     changefastq = final_out_prx + "_" + "AGchanged_2.fq"   ### sgNC_37c_combine_AGchanged_2.fq
     output_bed = final_out_prx + "_A.bed"   #sgNC_37c_combine_A.bed_sorted
-    if os.path.isfile(changefastq) and os.path.getsize(changefastq) > 100000:
+    if os.path.isfile(changefastq) or os.path.isfile(changefastq+'.gz'):
         sys.stderr.write("[%s] Warning：the changed files already exists, skip this precess\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         pass
     else:
@@ -329,7 +333,7 @@ if __name__ == "__main__":
         sys.stderr.write("[%s] Warning：the clean fastq file already exists, skip this precess\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         pass
     else:        
-        sam_rRNA, rRNA_unmap_fq, = mapping_files('bowtie', changefastq, rRNAref, Threads, mismatch,outname_prx + "_rRNA", outputdir2, maxmap,'20')
+        sam_rRNA, rRNA_unmap_fq, = mapping_files('bowtie2', changefastq, rRNAref, Threads, mismatch,outname_prx + "_rRNA", outputdir2, maxmap,'20')
         reverse_sam_rRNA = return_A_to_samfile(sam_rRNA, output_bed+"_sorted", "AG")
         rRNA_bam = getbamfiles(reverse_sam_rRNA, 's.bam', Threads,'20')   # test_rRNA_rs.bam
     
@@ -338,21 +342,34 @@ if __name__ == "__main__":
 
     ############ **********  mapping to AG/TC converted genome  ********** ############
     merge_ag_tc = final_out_prx +  "_" + "merge_AG_TC.sam"
+
+    unmapfastqAG = final_out_prx + "_AG_unmap.fq"
+    reverse_samAG = final_out_prx + "_AG_r.sam"
+    unmapfastqTC = final_out_prx + "_TC_unmap.fq"
+    reverse_samTC = final_out_prx + "_TC_r.sam"
+
     if os.path.isfile(merge_ag_tc) and os.path.getsize(merge_ag_tc) > 100000:
         sys.stderr.write("[%s] Warning：the merge sam file already exists, skip the process of mapping to A-G/T-C converted genome\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        unmapfastqAG = final_out_prx + "_AG_unmap.fq"
-        reverse_samAG = final_out_prx + "_AG_r.sam"
-        unmapfastqTC = final_out_prx + "_TC_unmap.fq"
-        reverse_samTC = final_out_prx + "_TC_r.sam"
-    else:    
-        sys.stderr.write("[%s] map to A-to-G converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        samAG, unmapfastqAG = mapping_files(tools, rRNA_unmap_fq, AGgenome, Threads, mismatch,outname_prx + "_AG", outputdir2, maxmap, "AG")
-        reverse_samAG = return_A_to_samfile(samAG,output_bed+"_sorted", "AG")  ##### AG converted 比对完返回A到比对文件中 #20 change to 4 by wu 
 
-        sys.stderr.write("[%s] map to T-to-C converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        samTC, unmapfastqTC = mapping_files(tools, rRNA_unmap_fq, TCgenome, Threads, mismatch,outname_prx + "_TC", outputdir2, maxmap, "TC")
-        reverse_samTC = return_A_to_samfile(samTC, output_bed+"_sorted", "TC")
+    else:
+        def run_AG():
+            sys.stderr.write("[%s] map to A-to-G converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            samAG, _ = mapping_files(tools, rRNA_unmap_fq, AGgenome, Threads, mismatch, outname_prx + "_AG", outputdir2, maxmap, "AG")
+            return_A_to_samfile(samAG, output_bed+"_sorted", "AG")
 
+        def run_TC():
+            sys.stderr.write("[%s] map to T-to-C converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            samTC, _ = mapping_files(tools, rRNA_unmap_fq, TCgenome, Threads, mismatch, outname_prx + "_TC", outputdir2, maxmap, "TC")
+            return_A_to_samfile(samTC, output_bed+"_sorted", "TC")
+
+        p1 = multiprocessing.Process(target=run_AG)
+        p2 = multiprocessing.Process(target=run_TC)
+
+        p1.start()
+        p2.start()
+
+        p1.join() 
+        p2.join()
 
     ############ **********  merge reads mapping to A-to-G converted genome and reads mapping to T-to-C converted genome  ********** ############ 
     sys.stderr.write("[%s] merge AG and TC alignments...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
@@ -396,16 +413,33 @@ if __name__ == "__main__":
         change_reads(unmap_fq, unmap_fq_AGchanged,output_bed_unmap,outputdir2,False)
 
         sys.stderr.write("[%s] unmap reads map to rRNA...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        sam_rRNA, rRNA_unmap_fq, = mapping_files('bowtie', unmap_fq_AGchanged, rRNAref, Threads, mismatch,outname_prx + "_realign_rRNA", outputdir2, maxmap,'20')
-    
-        sys.stderr.write("[%s] unmap reads map to A-to-G converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        samAG, unmapfastqAG = mapping_files(tools, rRNA_unmap_fq, AGgenome, Threads, mismatch,outname_prx + "_realign_AG", outputdir2,maxmap,'AG')
-        reverse_samAG_realign = return_A_to_samfile(samAG,output_bed_unmap+"_sorted", "AG")  ##### AG converted 比对完返回A到比对文件中 #20 change to 4 by wu
-        
-        sys.stderr.write("[%s] unmap reads map to T-to-C converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        samTC, unmapfastqTC = mapping_files(tools, rRNA_unmap_fq, TCgenome, Threads, mismatch,outname_prx + "_realign_TC", outputdir2,maxmap,'TC')
-        reverse_samTC_realign = return_A_to_samfile(samTC, output_bed_unmap+"_sorted", "TC")
+        sam_rRNA, rRNA_unmap_fq, = mapping_files('bowtie2', unmap_fq_AGchanged, rRNAref, Threads, mismatch,outname_prx + "_realign_rRNA", outputdir2, maxmap,'20')
 
+
+        reverse_samAG_realign = outputdir2 + outname_prx + "_realign_AG_r.sam"
+        reverse_samTC_realign = outputdir2 + outname_prx + "_realign_TC_r.sam"
+
+
+        def run_realign_AG():
+            sys.stderr.write("[%s] unmap reads map to A-to-G converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            samAG, _ = mapping_files(tools, rRNA_unmap_fq, AGgenome, Threads, mismatch,outname_prx + "_realign_AG", outputdir2,maxmap,'AG')
+            return_A_to_samfile(samAG, output_bed_unmap+"_sorted", "AG")
+
+
+        def run_realign_TC():
+            sys.stderr.write("[%s] unmap reads map to T-to-C converted genome...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            samTC, _ = mapping_files(tools, rRNA_unmap_fq, TCgenome, Threads, mismatch,outname_prx + "_realign_TC", outputdir2,maxmap,'TC')
+            return_A_to_samfile(samTC, output_bed_unmap+"_sorted", "TC")
+
+
+        p3 = multiprocessing.Process(target=run_realign_AG)
+        p4 = multiprocessing.Process(target=run_realign_TC)
+
+        p3.start()
+        p4.start()
+
+        p3.join()
+        p4.join()
 
 
         # merge 

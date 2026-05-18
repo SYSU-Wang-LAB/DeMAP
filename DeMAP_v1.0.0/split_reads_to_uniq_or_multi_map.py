@@ -57,8 +57,8 @@ def split_merge_sam(mergesam,uniqsam,multisam):
                         # filter alignments with extremely low mapping score compare to best alignment
                         filtered_alignments = [alignment for AS, alignment in zip(mapping_score, record_dic[previous_read_id]) if max(mapping_score) - AS <=  score1]
                         cigars = ";".join([alignment.split("\t")[5] for alignment in filtered_alignments])
-                        scaffolds = [alignment.split("\t")[2] for alignment in filtered_alignments if 'chr' not in alignment]
-                        if "N" in cigars or len(filtered_alignments) > maxmap or len(scaffolds) > 0:  # filter read cigar with N and reads mapped to too many locations
+                        #scaffolds = [alignment.split("\t")[2] for alignment in filtered_alignments if 'chr' not in alignment]
+                        if "N" in cigars or len(filtered_alignments) > maxmap:  # filter read cigar with N and reads mapped to too many locations
                             record_dic.clear()
                             record_dic[read_id] = [line]
                             continue
@@ -81,7 +81,7 @@ def split_merge_sam(mergesam,uniqsam,multisam):
                             record_dic[read_id] = [line]
                     else:
                         mapping_score = int(re.search(r"AS:i:(\d+)", record_dic[previous_read_id][0]).group(1))
-                        if mapping_score >= minScore and 'chr' in record_dic[previous_read_id][0]:
+                        if mapping_score >= minScore:
                             uniq_out.write(record_dic[previous_read_id][0])
                         record_dic.clear()
                         record_dic[read_id] = [line]
@@ -90,8 +90,8 @@ def split_merge_sam(mergesam,uniqsam,multisam):
         if len(record_dic[last_read_id]) >= 2: # multi-alignment
             mapping_score = [int(re.search(r"AS:i:(\d+)", alignment).group(1)) for alignment in record_dic[last_read_id]]
             cigars = ";".join([alignment.split("\t")[5] for alignment in record_dic[last_read_id]])
-            scaffolds = [alignment.split("\t")[2] for alignment in record_dic[last_read_id] if 'chr' not in alignment]
-            if "N" not in cigars and max(mapping_score) >= minScore and len(scaffolds) == 0:  # read cigar with N 
+            #scaffolds = [alignment.split("\t")[2] for alignment in record_dic[last_read_id] if 'chr' not in alignment]
+            if "N" not in cigars and max(mapping_score) >= minScore:  # read cigar with N 
                 # filter alignments with extremely low mapping score compare to best alignment
                 filtered_alignments = [alignment for AS, alignment in zip(mapping_score, record_dic[last_read_id]) if max(mapping_score) - AS <=  score1]
                 if len(filtered_alignments) < 2:
@@ -108,7 +108,7 @@ def split_merge_sam(mergesam,uniqsam,multisam):
                             multi_out.write(tmpstr1)
         else:
             mapping_score = int(re.search(r"AS:i:(\d+)", record_dic[last_read_id][0]).group(1))
-            if mapping_score >= minScore and 'chr' in record_dic[last_read_id][0]:
+            if mapping_score >= minScore:
                 uniq_out.write(record_dic[last_read_id][0])
 
 

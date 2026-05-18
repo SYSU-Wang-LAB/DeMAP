@@ -11,7 +11,6 @@ import sys
 import re
 import math
 """"""
-#对bed格式位点注释
 #extend 3bp for gene tss because 5' isoform
 #usage：python site_annotation.py gene_anno_file peakfile > result
 """"""
@@ -94,7 +93,7 @@ def got_annotation(anno_dic,peak_loci):
     end1 = peak_loci[2]
     strand1 = peak_loci[3]
     location = math.ceil((start1+end1)/float(2))
-    state_record = []  ### 考虑到一个位点可能overlap到不同的基因（少数基因在基因组上有重叠）or overlap 到同一基因多个转录本
+    state_record = []  ### site overlapped with more than one genes or transcript
     if chrome1+strand1 in anno_dic:
         for gene in anno_dic[chrome1+strand1]:
             state = "unfound"
@@ -106,7 +105,7 @@ def got_annotation(anno_dic,peak_loci):
             transcript_level = gene[14]
 
             information = "\t".join(gene[0:3])
-            if end2 >= start1 and end1 >= start2:  ### 在基因内
+            if end2 >= start1 and end1 >= start2:  ### in gene body
                 bonafound = "NO"
                 Exon_start = list(gene[6])
                 Exon_end = list(gene[7])
@@ -121,7 +120,7 @@ def got_annotation(anno_dic,peak_loci):
                     #distance_to_tss = abs(location - Exon_end[-1])
                     Exon_end[-1] = Exon_end[-1] + 10
 
-                if CDS_start == "cmpl":  ########## 在基因范围内，无CDS时不是Exon就是Intron
+                if CDS_start == "cmpl":  
                     for i in range(len(Exon_start)):
                         if int(Exon_start[i]) <= end1 and start1 <= int(Exon_end[i]):
                             state = "Exon"
@@ -130,7 +129,7 @@ def got_annotation(anno_dic,peak_loci):
                         #print("aaa")
                         state = "Intron"
                     
-                else:   #### 蛋白编码基因
+                else:   
                     for i in range(len(CDS_start)):
                         if int(CDS_start[i]) <= end1 and start1 <= int(CDS_end[i]):
                             state = "CDS"
@@ -152,7 +151,7 @@ def got_annotation(anno_dic,peak_loci):
                                 if location < int(CDS_start[0]):
                                     state = "3UTR"
                     
-                        if state == "unfound":   #不在exon上
+                        if state == "unfound":
                             if strand1 == "+":
                                 if location <= int(Exon_end[-1]) and location >= int(Exon_start[0]):
                                     state = "Intron"
@@ -162,7 +161,7 @@ def got_annotation(anno_dic,peak_loci):
                                     state = "Intron"
                                     bonafound = "YES"        
 
-                        if state == "unfound":  #不在intron上////即在基因内,但在转录本上游或者下游
+                        if state == "unfound":  
                             if strand1 == "+":
                                 if location < Exon_start[0]:
                                     state = "5UTR"
@@ -214,7 +213,7 @@ if __name__ == "__main__":
     info_dic = load_anno_file(geno_anno_file)
     infile = open(peakfile,"r")
 
-    priority_1 = {'YES': 0, 'NO': 1} #### 确切匹配
+    priority_1 = {'YES': 0, 'NO': 1} 
     priority_2 = {'protein_coding':0,'lncRNA':1,'pseudogene':2}
     def sortgenetype(item):
         gene_type = item
@@ -222,8 +221,8 @@ if __name__ == "__main__":
             if keyword in gene_type:
                 return priority
         return 999
-    priority_3 = {'5UTR': 0, 'CDS': 0, '3UTR': 0, 'Exon': 3, 'Intron': 4, 'Promoter': 5,'unfound':6} #### 匹配到多个优先顺序5UTR CDS 3UTR Exon Intron Promoter
-    priority_4 = {'Ensembl_canonical':0,'Basic':1,'Others':2} ### 转录本等级
+    priority_3 = {'5UTR': 0, 'CDS': 0, '3UTR': 0, 'Exon': 3, 'Intron': 4, 'Promoter': 5,'unfound':6} #### priority:5UTR = CDS = 3UTR >  Exon >  Intron > Promoter
+    priority_4 = {'Ensembl_canonical':0,'Basic':1,'Others':2} ### transcript level
 
     for line in infile:
         info = line.rstrip().split()

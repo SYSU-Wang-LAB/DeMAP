@@ -75,7 +75,7 @@ calling_methy.add_argument("--rm_5end_softclip", action="store_true", help="If s
                 "This is recommended only when soft-clipped reads are rare (e.g., <20%%) and for m6Am-specific analyses (e.g., CROWN-seq).\n")
 calling_methy.add_argument("-AGcov","--AGCoverage",type=str, default='15',help="Minimum A + G counts. (default:15)")
 calling_methy.add_argument("-Acov","--ACoverage",type=str, default='5',help="Minimum A counts. (default:5)")
-calling_methy.add_argument("-ratio","--ARatio",type=str, default='0.03',help="Minimum methylation level: A counts / AG counts. (default:0.03)")
+calling_methy.add_argument("-ratio","--ARatio",type=str, default='0.05',help="Minimum methylation level: A counts / AG counts. (default:0.05)")
 calling_methy.add_argument("-enrich","--foldenrich",type=str, default='3',help="Minimum fold change between methylation level and background methylation level. (default:3)")
 calling_methy.add_argument("-AGRatio","--AGRatio",type=str, default='0.6',help="Filter sites with A+G counts/total counts < AGRatio. (default:0.6)\n"
                             "This parameter filters out mutation sites caused by SNPs.")

@@ -16,6 +16,7 @@ import time
 import copy
 import math
 import subprocess
+import re
 
 parser = argparse.ArgumentParser(description = "Correct the softclip due to high C to U mutataion",formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument("-insam", "--insam", nargs="?", type=str, default="none", help = "samfile of read mapping to AG/TC converted genome")
@@ -54,12 +55,17 @@ def load_exons_and_splice_sites(gtf_file):
     exons_by_transcript = {}
     splice_sites = {}
     
+
+    tid_pattern = re.compile(r'transcript_id[\s\t]+(?:\"([^\"]+)\"|([^;\s\t]+))')
+    
     with open(gtf_file, 'r') as f:
         for line in f:
             if line.startswith('#'):
                 continue
-            fields = line.strip().split('\t')
-            if fields[2] != 'exon':
+            
+            fields = line.strip().split('\t', 8)
+            
+            if len(fields) < 9 or fields[2] != 'exon':
                 continue
                 
             chrom = fields[0]
@@ -68,19 +74,15 @@ def load_exons_and_splice_sites(gtf_file):
             strand = fields[6]
             info = fields[8]
             
-            transcript_id = None
-            for info_part in info.split(';'):
-                info_part = info_part.strip()
-                if info_part.startswith('transcript_id'):
-                    transcript_id = info_part.split(' ')[1].strip('"')
-                    break
-                    
-            if transcript_id is None:
+            match = tid_pattern.search(info)
+            if not match:
                 continue
+
+            transcript_id = match.group(1) if match.group(1) else match.group(2)
+            
             if transcript_id not in exons_by_transcript:
                 exons_by_transcript[transcript_id] = []
-            else:
-                exons_by_transcript[transcript_id].append((chrom, start, end, strand))
+            exons_by_transcript[transcript_id].append((chrom, start, end, strand))
     
     # only keep multi-exon transcripts
     multi_exon_transcripts = {}
@@ -93,23 +95,23 @@ def load_exons_and_splice_sites(gtf_file):
             if chrom not in splice_sites:
                 splice_sites[chrom] = {}
             strand = exons_sorted[0][3]
+            
             for i in range(len(exons_sorted) - 1):
                 # donor site: exon end + 1
                 donor_pos = exons_sorted[i][2] + 1
                 if donor_pos not in splice_sites[chrom]:
                     splice_sites[chrom][donor_pos] = []
-                    splice_sites[chrom][donor_pos].append((strand, tid, 'donor'))
-                else:
-                    splice_sites[chrom][donor_pos].append((strand, tid, 'donor'))
+                splice_sites[chrom][donor_pos].append((strand, tid, 'donor'))
+                
                 # acceptor site: next exon start
                 acceptor_pos = exons_sorted[i+1][1]  # 0-based
                 if acceptor_pos not in splice_sites[chrom]:
                     splice_sites[chrom][acceptor_pos] = []
-                    splice_sites[chrom][acceptor_pos].append((strand, tid, 'acceptor'))
-                else:                
-                    splice_sites[chrom][acceptor_pos].append((strand, tid, 'acceptor'))
-    
+                splice_sites[chrom][acceptor_pos].append((strand, tid, 'acceptor'))
+                
     return multi_exon_transcripts, splice_sites
+
+
 
 def compute_softclip_base_freq(sam_path, n_reads=5000000):
     """
@@ -184,7 +186,6 @@ def build_strand_specific_transfer_matrices(sam_path, ref_fasta_path, n_reads=50
             aligned_pairs = read.get_aligned_pairs(matches_only=True)
             AS = read.get_tag('AS')
 
-            # 检查aligned_pairs是否为None
             if aligned_pairs is None or AS < 30:
                 continue
 
@@ -213,7 +214,7 @@ def build_strand_specific_transfer_matrices(sam_path, ref_fasta_path, n_reads=50
         row_sums = counts.sum(axis=1, keepdims=True)
         safe_sums = np.where(row_sums == 0, 1, row_sums)
         prob_matrix = counts / safe_sums
-        # 预计算对数版本
+
         log_prob_matrix = np.log(np.maximum(prob_matrix, EPSILON))
         return prob_matrix, log_prob_matrix
     
@@ -231,12 +232,11 @@ def generate_random_sequence(length, bg_freq):
 def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat, 
                                    sc_type=None, return_best_subinterval=False):
     """
-    计算log似然比
-    sc_type: '5prime'或'3prime'，指定是哪种softclip
-    return_best_subinterval: 是否返回最佳子区间信息
+    calculate LLR
+    sc_type: '5prime' or '3prime'
+    return:best_subinterval
     """
     if not return_best_subinterval:
-        # 原逻辑：计算整个区间的LLR
         log_p_h0 = 0.0
         log_p_h1 = 0.0
         
@@ -256,7 +256,6 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
         return log_lr
     
     else:
-        # 寻找紧贴匹配端的最佳子区间
         seq_len = len(seq)
         
         if seq_len < 5:
@@ -268,13 +267,11 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
         best_length = 0
         
         if sc_type == '5prime':
-            # 对于5' softclip，最佳子区间在末端（紧贴匹配端）
-            # 从最小长度5开始，到最大长度seq_len
+
             for sub_len in range(5, seq_len + 1):
-                start = seq_len - sub_len  # 从末端开始
+                start = seq_len - sub_len  
                 end = seq_len
-                
-                # 计算这个子区间的LLR
+    
                 log_p_h0 = 0.0
                 log_p_h1 = 0.0
                 for i in range(start, end):
@@ -300,13 +297,10 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
                     best_length = sub_len
         
         elif sc_type == '3prime':
-            # 对于3' softclip，最佳子区间在起始端（紧贴匹配端）
-            # 从最小长度5开始，到最大长度seq_len
             for sub_len in range(5, seq_len + 1):
                 start = 0
                 end = sub_len
                 
-                # 计算这个子区间的LLR
                 log_p_h0 = 0.0
                 log_p_h1 = 0.0
                 for i in range(start, end):
@@ -367,8 +361,8 @@ def calculate_thresholds(sim_results, alpha=0.005):
 
 def calculate_mismatch(seq1, seq2, is_reverse,tolerate_c2u=False):
     """
-    计算两个序列的错配数
-    考虑特殊规则：正链时 A→G 不算错配，负链时 T→C 不算错配
+    calculate mismatch number
+    '+' strand allow A→G mismatch; '-' allow T→C mismatch
     """
     if len(seq1) != len(seq2) or len(seq1) == 0:
         return 0
@@ -376,13 +370,11 @@ def calculate_mismatch(seq1, seq2, is_reverse,tolerate_c2u=False):
     mismatches = 0
     C2U_count = 0
     for a, b in zip(seq1, seq2):
-        # 直接检查是否属于错配情况
         if a != b:
-            # 检查是否满足特殊规则
             if not is_reverse and a == 'A' and b == 'G':
-                continue  # 正链时 A→G 不算错配
+                continue  
             elif is_reverse and a == 'T' and b == 'C':
-                continue  # 负链时 T→C 不算错配
+                continue 
             else:
                 mismatches += 1
                 if not is_reverse and a == 'C' and b == 'T':
@@ -396,25 +388,23 @@ def calculate_mismatch(seq1, seq2, is_reverse,tolerate_c2u=False):
 
 def create_shifted_read(read, is_5_end):
     """
-    创建一个移位的read副本
-    is_5_end: 是否处理5'端
+    create a read with 1 base shift
     """
     shifted_read = copy.copy(read)
     cigar = list(read.cigartuples)
     
     if is_5_end and cigar[0][0] == 4:  # 5' softclip
-        cigar[0] = (4, cigar[0][1] + 1)  # 增加softclip长度
-        # 找到第一个M操作并减少1
+        cigar[0] = (4, cigar[0][1] + 1)  # increase softclip length
         for i, op in enumerate(cigar):
-            if op[0] == 0:  # M操作
+            if op[0] == 0:  
                 cigar[i] = (0, op[1] - 1)
                 break
         shifted_read.reference_start += 1
     
     elif not is_5_end and cigar[-1][0] == 4:  # 3' softclip
-        cigar[-1] = (4, cigar[-1][1] + 1)  # 增加softclip长度
+        cigar[-1] = (4, cigar[-1][1] + 1) 
         for i in range(len(cigar)-1, -1, -1):
-            if cigar[i][0] == 0:  # M操作
+            if cigar[i][0] == 0:  
                 cigar[i] = (0, cigar[i][1] - 1)
                 break
     
@@ -422,9 +412,7 @@ def create_shifted_read(read, is_5_end):
     return shifted_read
 
 def process_softclip_from_splice(read, ref_fasta, splice_sites, exons_by_transcript, softclip_len, is_5_end, basetheta, transmatrix,tolerate_c2u):
-    """
-    处理softclip,返回匹配信息
-    """
+
     chrom = read.reference_name
     ref_start = read.reference_start
     ref_end = read.reference_end
@@ -434,7 +422,7 @@ def process_softclip_from_splice(read, ref_fasta, splice_sites, exons_by_transcr
     junction_pos = ref_start if is_5_end else ref_end
     site_type = 'acceptor' if is_5_end else 'donor'
     
-    # 检查交界位置是否有对应的剪切位点
+
     if chrom not in splice_sites:
         return 0.0, None, 0, 0, 0, 0
     if junction_pos not in splice_sites[chrom]:
@@ -489,7 +477,7 @@ def process_softclip_from_splice(read, ref_fasta, splice_sites, exons_by_transcr
                 softclip_seq = seq[-softclip_len:]
                 tmp_LLR = calculate_log_likelihood_ratio(softclip_seq,exon_seq,basetheta,transmatrix)    
             
-            # 计算匹配度
+
             mismatch_count = calculate_mismatch(exon_seq, softclip_seq, is_reverse,tolerate_c2u)
             match_rate = (len(exon_seq) - mismatch_count) / len(exon_seq)
 
@@ -499,7 +487,7 @@ def process_softclip_from_splice(read, ref_fasta, splice_sites, exons_by_transcr
                 best_delta_AS = len(exon_seq) - int(mismatch_count + mismatch_count)
                 best_LLR = tmp_LLR
                 
-                # 计算内含子长度
+
                 if is_5_end:
                     for i in range(len(exons)):
                         if exons[i][1] == junction_pos and i > 0:
@@ -569,7 +557,7 @@ def process_softclip_from_genome(read, ref_fasta,tolerate_c2u):
 
 
 def merge_cigar_tuples(cigar_tuples):
-    """合并相邻的相同CIGAR操作"""
+    """merge same cigar"""
     if not cigar_tuples:
         return []
     
@@ -630,7 +618,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
 
         ################## correct fake softclip in splice junctions by match previous or next exon  ####################################### 
         ################## correct fake softclip in splice junctions by match previous or next exon   #######################################      
-        # 获取softclip信息
+        # extract softclip
         softclip_5 = 0
         softclip_3 = 0
         if cigar_tuples[0][0] == 4:  # 5' softclip
@@ -644,7 +632,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             total_processed_reads.append(read)
             continue
         
-        # 处理5' softclip
+        # process 5' softclip
         best_5_match, best_5_tid, best_5_intron_len, best_5_exon_start, best_5_delta_AS, best_5_LLR = 0.0, None, 0, 0, 0, 0
         need_shift_5 = False
         
@@ -664,7 +652,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                     best_5_match, best_5_tid, best_5_intron_len, best_5_exon_start, best_5_delta_AS, best_5_LLR = \
                         match_shift, tid_shift, intron_shift, exon_start_shift, delta_AS_shift, LLR_shift
         
-        # 处理3' softclip
+        #  3' softclip
         best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = 0.0, None, 0, 0, 0, 0
         need_shift_3 = False
         
@@ -672,7 +660,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = process_softclip_from_splice(
                 read, ref_fasta, splice_sites, exons_by_transcript, softclip_3, False, log_theta, log_transfer_matrix,tolerate_c2u)
             
-            # 如果正常处理失败，尝试移位处理
+            # try shift
             if best_3_tid is None:
                 need_shift_3 = True
                 shifted_read = create_shifted_read(read, False)
@@ -685,7 +673,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                     best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = \
                         match_shift, tid_shift, intron_shift, exon_start_shift, delta_AS_shift, LLR_shift
         
-        # 判断是否需要进行修正
+        # only correct read with soft-clipped bases >= 5bp
         if softclip_5 >= 5:
             threshold_len = min(softclip_5, 50)
             modify_5 = (best_5_match >= match_ratio and best_5_LLR >= thresholds[threshold_len]) or best_5_match == 1
@@ -705,22 +693,18 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             process_in_splice.append(read)
             continue
         
-        # 如果两端都需要修正，检查是否同一转录本
         if modify_5 and modify_3:
             if best_5_tid != best_3_tid:
-                # 选择匹配度较高的一端
                 if best_5_match > best_3_match:
                     modify_3 = False
                 elif best_3_match > best_5_match:
                     modify_5 = False
                 else:
-                    # 匹配度相同，选择较长的一端
                     if softclip_5 > softclip_3:
                         modify_3 = False
                     elif softclip_3 > softclip_5:
                         modify_5 = False
                     else:
-                        # 两端长度也相同，都不修正
                         modify_5 = False
                         modify_3 = False
 
@@ -729,7 +713,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             total_processed_reads.append(read)
             continue
 
-        # 修正CIGAR和位置
+        # correct CIGAR
         new_cigar = list(cigar_tuples)
         new_pos = read.reference_start
         
@@ -738,11 +722,10 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                 new_cigar.pop(0)
             
             if need_shift_5:
-                # 移位修正：S+1, M-1
-                new_cigar.insert(0, (0, softclip_5 + 1))  # M (增加1)
-                # 找到第一个匹配操作并减少1
+                # S+1, M-1
+                new_cigar.insert(0, (0, softclip_5 + 1))  # M 
                 for i, op in enumerate(new_cigar):
-                    if op[0] == 0 and i > 0:  # M操作
+                    if op[0] == 0 and i > 0:  
                         new_cigar[i] = (0, op[1] - 1)
                         break
             else:
@@ -750,22 +733,18 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             
             new_cigar.insert(1, (3, best_5_intron_len))  # N
             
-            # 更新参考起始位置
             new_pos = best_5_exon_start
             current_AS = read.get_tag('AS')
             read.set_tag('AS', int(current_AS + best_5_delta_AS), value_type='i')
         
         if modify_3:
-            # 修改CIGAR
             if new_cigar[-1][0] == 4:
                 new_cigar.pop()
             
             if need_shift_3:
-                # 移位修正：S+1, M-1
                 new_cigar.append((3, best_3_intron_len))  # N
                 new_cigar.append((0, softclip_3 + 1))  # M (增加1)
                 
-                # 找到最后一个匹配操作并减少1
                 for i in range(len(new_cigar)-2, -1, -1):
                     if new_cigar[i][0] == 0:  # M操作
                         new_cigar[i] = (0, new_cigar[i][1] - 1)
@@ -777,7 +756,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             current_AS = read.get_tag('AS')
             read.set_tag('AS', int(current_AS + best_3_delta_AS), value_type='i')
 
-        # 更新read信息
+        # update read information
         read.cigartuples = new_cigar
         read.reference_start = new_pos
 
@@ -821,7 +800,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
 
         AS_changes = 0
         corrected = False
-        new_cigar = list(cigar_tuples)  # 创建副本
+        new_cigar = list(cigar_tuples)  
         result_record = []
 
         for (soft_seq, ref_seq,mismatch_count,matchratio, sc_type) in soft_regions:
@@ -849,17 +828,14 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                     sc_type=sc_type, return_best_subinterval=True
                 )
                 if best_interval is not None:
-                    # 获取最佳子区间的序列
                     sub_start = best_interval['start']
                     sub_end = best_interval['end']
                     sub_seq = soft_seq[sub_start:sub_end]
                     sub_ref = ref_seq[sub_start:sub_end]
                     
-                    # 计算最佳子区间的错配数和匹配率
                     sub_mismatches = calculate_mismatch(sub_ref, sub_seq, is_reverse, tolerate_c2u)
                     sub_matchratio = round(1 - (sub_mismatches - 1) / (best_interval['length'] - 1),3) if sub_mismatches - 1 > 0 else 1
                     
-                    # 获取阈值
                     threshold_len = min(best_interval['length'], 50)
                     threshold = thresholds[threshold_len]
                     if (best_interval['log_lr'] >= threshold and sub_matchratio >= match_ratio) or sub_matchratio == 1:
@@ -867,32 +843,27 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                         AS_delta = (best_interval['length'] - sub_mismatches) - sub_mismatches
                         AS_changes += AS_delta
                         if sc_type == '5prime':
-                            # 5' softclip: 比如10S，最佳子区间是3-10bp，那么新的cigar应该是2S8M
-                            left_soft_len = sub_start  # 左侧保留为softclip的长度
-                            match_len = best_interval['length']  # 变为匹配的长度
+                            left_soft_len = sub_start  
+                            match_len = best_interval['length']  
                             
-                            # 更新cigar - 删除原来的5' softclip，插入新的
-                            del new_cigar[0]  # 删除原来的softclip
+                            del new_cigar[0] 
                             if left_soft_len > 0:
-                                # 如果有左侧softclip，插入到前面
                                 new_cigar.insert(0, (4, left_soft_len))
                                 new_cigar.insert(1, (0, match_len))
                             else:
                                 new_cigar.insert(0, (0, match_len))
                             
-                            # 调整参考起始位置
                             read.reference_start = read.reference_start - match_len
                             
                         else:  # '3prime'
-                            # 3' softclip: 比如12S，最佳子区间是1-5bp，那么新的cigar应该是5M7S
-                            match_len = best_interval['length']  # 变为匹配的长度
-                            right_soft_len = soft_len - sub_end  # 右侧保留为softclip的长度
+                            match_len = best_interval['length'] 
+                            right_soft_len = soft_len - sub_end 
                             
-                            # 更新cigar - 删除原来的3' softclip，添加新的
-                            del new_cigar[-1]  # 删除原来的softclip
-                            new_cigar.append((0, match_len))  # 匹配部分
+
+                            del new_cigar[-1]
+                            new_cigar.append((0, match_len))
                             if right_soft_len > 0:
-                                # 如果有右侧softclip，添加到后面
+
                                 new_cigar.append((4, right_soft_len))
                         if match_len < soft_len:
                             result_record.append([True, sub_matchratio, sc_type, f"sub_{best_interval['length']}bp_{ref_seq}_{soft_seq}"])
@@ -915,9 +886,8 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             read.set_tag('AS', int(current_AS + AS_changes), value_type='i')
 
         if result_record:
-            # 使用阈值判断结果而不是p值
             splicetag = read.get_tag('SC')
-            if any(r[0] for r in result_record):  # 如果任何区域超过阈值
+            if any(r[0] for r in result_record): 
                 all_match_ratio = [r[1] for r in result_record]
                 best_match = max([r[1] for r in result_record if r[0]])
                 best_index = all_match_ratio.index(best_match)
@@ -927,7 +897,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                 else:
                     read.set_tag('SC', splicetag + "_YES_" + str(best_match))
             else:
-                best_match = max([r[1] for r in result_record])  # 找到所有区域中匹配率最高的
+                best_match = max([r[1] for r in result_record])
                 read.set_tag('SC', splicetag + "_NO_" +  str(best_match))
         total_processed_reads.append(read)
 
@@ -969,7 +939,7 @@ def correct_softclip_chunk_wrapper(args):
 
 def write_completed_results(outfile, submitted_tasks, results_cache, next_write_id, header):
     """
-    检查已完成的任务并写入结果（修复版）
+    output results
     """
     i = 0
     while i < len(submitted_tasks):
@@ -983,8 +953,8 @@ def write_completed_results(outfile, submitted_tasks, results_cache, next_write_
                 #print(f"Chunk {result_id} processed successfully")
             except Exception as e:
                 print(f"Error processing chunk {chunk_id}: {e}")
-                # 添加空结果防止阻塞
-                results_cache[chunk_id] = [""] * 100  # 假设chunk大小100
+
+                results_cache[chunk_id] = [""] * 100
                 submitted_tasks.pop(i)
                 continue
         else:
@@ -993,7 +963,7 @@ def write_completed_results(outfile, submitted_tasks, results_cache, next_write_
     while next_write_id in results_cache:
         processed_strs = results_cache.pop(next_write_id)
         for read_str in processed_strs:
-            if read_str:  # 跳过空字符串
+            if read_str: 
                 try:
                     read = pysam.AlignedSegment().fromstring(read_str, header)
                     outfile.write(read)
@@ -1008,7 +978,6 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
 
     exons_by_transcript, splice_sites = load_exons_and_splice_sites(gtffile)
 
-    # 步骤1: 预计算链特异性参数
     print("Precomputing strand-specific parameters from first 2,000,000 aligned reads...")
     
     pos_theta, neg_theta, pos_log_theta, neg_log_theta = compute_softclip_base_freq(sam_input, n_reads=2000000)
@@ -1040,16 +1009,15 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
     N_SIM = 100000  # 1×10^-5
     np.random.seed(22)
 
-    # 步骤1: 模拟H0分布
+    # simulate H0 distribution
     sim_results_plus = simulate_h0_distribution(len_list, N_SIM, pos_theta, pos_log_theta, pos_log_transfer_matrix)  # using strand '+' 
     sim_results_minus = simulate_h0_distribution(len_list, N_SIM, neg_theta, neg_log_theta, neg_log_transfer_matrix)  # using strand '-' 
 
-    # 步骤2: 计算各长度组阈值 (0.005:99.5%分位数)
+    # Calculate thresholds for different lengths
     thresholds_plus = calculate_thresholds(sim_results_plus, alpha=alpha)
     thresholds_minus = calculate_thresholds(sim_results_minus, alpha=alpha)
 
 
-    # 步骤2: 流式多进程处理
     print(f"\nStreaming processing in chunks (size={chunk_size}) using {n_processes} processes...")
     
     chunk_id = 0
@@ -1058,26 +1026,22 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
     results_cache = {}
     next_write_id = 0
     
-    # 创建进程池
     pool = mp.Pool(processes=n_processes)
     
     try:
         with pysam.AlignmentFile(sam_input, "rb") as samfile:
             header_dict = samfile.header.to_dict()
             
-            # 直接打开输出文件，不再使用临时文件
             with pysam.AlignmentFile(output_sam, "w", header=samfile.header) as outfile:
                 buffer = []
-                max_pending_tasks = n_processes * 4  # 最大待处理任务数为进程数的2倍
+                max_pending_tasks = n_processes * 4
                 
                 for read in samfile:
                     buffer.append(read)
                     total_reads += 1
                     
                     if len(buffer) >= chunk_size:
-                        # 检查是否有太多待处理任务
                         if len(submitted_tasks) >= max_pending_tasks:
-                            # 等待一些任务完成
                             time.sleep(0.01)
                             next_write_id = write_completed_results(
                                 outfile, submitted_tasks, results_cache, next_write_id, samfile.header
@@ -1102,7 +1066,7 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
                             outfile, submitted_tasks, results_cache, next_write_id, samfile.header
                         )
                 
-                # 处理最后一个批次
+                # Process the last batch
                 if buffer:
                     read_strs = [r.tostring() for r in buffer]
                     task_args = (
@@ -1116,7 +1080,7 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
                     submitted_tasks.append((chunk_id, future))
                     chunk_id += 1
                 
-                # 处理所有剩余任务
+                # Process all remaining tasks
                 while submitted_tasks:
                     next_write_id = write_completed_results(
                         outfile, submitted_tasks, results_cache, next_write_id, samfile.header)
