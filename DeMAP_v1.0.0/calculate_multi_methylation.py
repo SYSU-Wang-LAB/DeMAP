@@ -283,7 +283,7 @@ def A_site_pileup_state(filein,fileout):
 
                         ##### call methylation site
                         nearest_keys = get_nearest_Asite_index(A_position,all_Asite_number - 1,flank_n,all_Asite_position_list)
-                        nearest_keys_keep = [keepkey for keepkey in nearest_keys if not (Asite_dic[previous_chrome][keepkey][8] >= chrome_A_ratio*enrich_fold and Asite_dic[previous_chrome][keepkey][6] >= 2)]
+                        nearest_keys_keep = [keepkey for keepkey in nearest_keys if not (Asite_dic[previous_chrome][keepkey][8] >= chrome_A_ratio*enrich_fold and Asite_dic[previous_chrome][keepkey][6] >= 3)]
                         A_in_neighbor = sum([Asite_dic[previous_chrome][Apos][6] for Apos in nearest_keys_keep])
                         AG_in_neighbor = sum([Asite_dic[previous_chrome][Apos][7] for Apos in nearest_keys_keep])
                         A_ratio_in_neighbor = round(A_in_neighbor/AG_in_neighbor,3) if A_in_neighbor > 0 else round(chrome_A_ratio,3)
@@ -359,7 +359,7 @@ def A_site_pileup_state(filein,fileout):
 
                 ##### call methylation site
                 nearest_keys = get_nearest_Asite_index(A_position,all_Asite_number - 1,flank_n,all_Asite_position_list)
-                nearest_keys_keep = [keepkey for keepkey in nearest_keys if not (Asite_dic[lastchrome][keepkey][8] >= chrome_A_ratio*enrich_fold and Asite_dic[lastchrome][keepkey][6] >= 2)]
+                nearest_keys_keep = [keepkey for keepkey in nearest_keys if not (Asite_dic[lastchrome][keepkey][8] >= chrome_A_ratio*enrich_fold and Asite_dic[lastchrome][keepkey][6] >= 3)]
                 A_in_neighbor = sum([Asite_dic[lastchrome][Apos][6] for Apos in nearest_keys_keep])
                 AG_in_neighbor = sum([Asite_dic[lastchrome][Apos][7] for Apos in nearest_keys_keep])
                 A_ratio_in_neighbor = round(A_in_neighbor/AG_in_neighbor,3) if A_in_neighbor > 0 else round(chrome_A_ratio,3)
@@ -369,7 +369,7 @@ def A_site_pileup_state(filein,fileout):
                 ##### call m6Am
                 cleavages = [pileup_dic[lastchrome][adjacentsite][3] if adjacentsite in pileup_dic[lastchrome] else "0;0" for adjacentsite in range(A_position-10,A_position+11) if adjacentsite != A_position]
                 cleavages = [cleavage.split(",")[0] for cleavage in cleavages]
-                cleavages = [cleavage for cleavage in cleavages if int(cleavage.split(";")[1]) >= 30]
+                cleavages = [cleavage for cleavage in cleavages if int(cleavage.split(";")[1]) >= AG_Coverage]
                 if len(cleavages) < 5:
                     cleavage_ratio = 0
                 else:
