@@ -28,9 +28,12 @@ parser.add_argument("-bz", "--batchsize", nargs="?", type=int, default=1000000, 
 parser.add_argument("-C2U", "--C2U", nargs="?", type=float, default=0.05, help = "If C2U mutation level higher than <C2U> in mapped region, treat two 2 C-to-U mismatch as a mismatch")
 parser.add_argument("-SC_pval", "--SC_pval", nargs="?", type=float, default=0.001, help = "P-value for the cutoff of LLR test. (default:0.001)")
 parser.add_argument("-match_ratio", "--match_ratio", nargs="?", type=float, default=0.8, help = "The minimum ratio of bases match to reference in softclip region. (default:0.8)")
+parser.add_argument("-minSC", "--min_softclip", nargs="?", type=int, default=5, help = "The minimum softclip length included in correction. (default:5)")
 parser.add_argument("--bam", action="store_true", help="If specified, output file as bam.")
 
 args = parser.parse_args()
+if args.min_softclip < 5:
+    parser.error("--min_softclip must be >= 5")
 
 insam = args.insam
 outname = args.outname
@@ -39,6 +42,7 @@ gtffile = args.gtf
 Threads = int(args.Threads)
 pvalue = args.SC_pval
 match_ratio = args.match_ratio
+min_softclip = args.min_softclip
 chunk_size = args.batchsize
 C2Ulevel = args.C2U
 outbam = args.bam
@@ -54,8 +58,13 @@ def load_exons_and_splice_sites(gtf_file):
     """
     exons_by_transcript = {}
     splice_sites = {}
-    
+    # only keep multi-exon transcripts
+    multi_exon_transcripts = {}
 
+    if gtf_file == "none":
+        return multi_exon_transcripts, splice_sites
+
+        
     tid_pattern = re.compile(r'transcript_id[\s\t]+(?:\"([^\"]+)\"|([^;\s\t]+))')
     
     with open(gtf_file, 'r') as f:
@@ -84,8 +93,7 @@ def load_exons_and_splice_sites(gtf_file):
                 exons_by_transcript[transcript_id] = []
             exons_by_transcript[transcript_id].append((chrom, start, end, strand))
     
-    # only keep multi-exon transcripts
-    multi_exon_transcripts = {}
+
     for tid, exons in exons_by_transcript.items():
         if len(exons) > 1:
             exons_sorted = sorted(exons, key=lambda x: x[1])
@@ -186,7 +194,7 @@ def build_strand_specific_transfer_matrices(sam_path, ref_fasta_path, n_reads=50
             aligned_pairs = read.get_aligned_pairs(matches_only=True)
             AS = read.get_tag('AS')
 
-            if aligned_pairs is None or AS < 30:
+            if aligned_pairs is None or AS < 40:
                 continue
 
             for read_pos, ref_pos in aligned_pairs:
@@ -258,7 +266,7 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
     else:
         seq_len = len(seq)
         
-        if seq_len < 5:
+        if seq_len < min_softclip:
             return None
         
         best_log_lr = -float('inf')
@@ -268,7 +276,7 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
         
         if sc_type == '5prime':
 
-            for sub_len in range(5, seq_len + 1):
+            for sub_len in range(min_softclip, seq_len + 1):
                 start = seq_len - sub_len  
                 end = seq_len
     
@@ -297,7 +305,7 @@ def calculate_log_likelihood_ratio(seq, ref, bg_log_freq, log_trans_mat,
                     best_length = sub_len
         
         elif sc_type == '3prime':
-            for sub_len in range(5, seq_len + 1):
+            for sub_len in range(min_softclip, seq_len + 1):
                 start = 0
                 end = sub_len
                 
@@ -514,7 +522,7 @@ def process_softclip_from_genome(read, ref_fasta,tolerate_c2u):
     is_reverse = read.is_reverse
 
     # 1. softclip (5'S)
-    if cigar_tuples[0][0] == 4 and cigar_tuples[0][1] >= 5:  # 4 = BAM_CSOFT_CLIP
+    if cigar_tuples[0][0] == 4 and cigar_tuples[0][1] >= min_softclip:  # 4 = BAM_CSOFT_CLIP
         length = cigar_tuples[0][1]
         ref_start = read.reference_start
         soft_ref_start = max(0, ref_start - length)
@@ -534,7 +542,7 @@ def process_softclip_from_genome(read, ref_fasta,tolerate_c2u):
             pass
     
     # 2. softclip (3'S)
-    if cigar_tuples[-1][0] == 4 and cigar_tuples[-1][1] >= 5:  # 4 = BAM_CSOFT_CLIP
+    if cigar_tuples[-1][0] == 4 and cigar_tuples[-1][1] >= min_softclip:  # 4 = BAM_CSOFT_CLIP
         length = cigar_tuples[-1][1]
         ref_end = read.reference_end
         soft_ref_start = ref_end
@@ -619,6 +627,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
         ################## correct fake softclip in splice junctions by match previous or next exon  ####################################### 
         ################## correct fake softclip in splice junctions by match previous or next exon   #######################################      
         # extract softclip
+        read.set_tag('SC', "NO")
         softclip_5 = 0
         softclip_3 = 0
         if cigar_tuples[0][0] == 4:  # 5' softclip
@@ -626,8 +635,8 @@ def correct_softclip_chunk(reads, ref_fasta_path,
         if cigar_tuples[-1][0] == 4:  # 3' softclip
             softclip_3 = cigar_tuples[-1][1]
         
-        # require softclip length >= 5
-        if softclip_5 < 5 and softclip_3 < 5:
+        # require softclip length >= min_softclip
+        if softclip_5 < min_softclip and softclip_3 < min_softclip:
             read.set_tag('SC', "NO_short")
             total_processed_reads.append(read)
             continue
@@ -636,7 +645,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
         best_5_match, best_5_tid, best_5_intron_len, best_5_exon_start, best_5_delta_AS, best_5_LLR = 0.0, None, 0, 0, 0, 0
         need_shift_5 = False
         
-        if softclip_5 >= 5:
+        if softclip_5 >= min_softclip:
             best_5_match, best_5_tid, best_5_intron_len, best_5_exon_start, best_5_delta_AS, best_5_LLR = process_softclip_from_splice(
                 read, ref_fasta, splice_sites, exons_by_transcript, softclip_5, True, log_theta, log_transfer_matrix,tolerate_c2u)
             
@@ -656,7 +665,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
         best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = 0.0, None, 0, 0, 0, 0
         need_shift_3 = False
         
-        if softclip_3 >= 5:
+        if softclip_3 >= min_softclip:
             best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = process_softclip_from_splice(
                 read, ref_fasta, splice_sites, exons_by_transcript, softclip_3, False, log_theta, log_transfer_matrix,tolerate_c2u)
             
@@ -673,14 +682,14 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                     best_3_match, best_3_tid, best_3_intron_len, best_3_exon_start, best_3_delta_AS, best_3_LLR = \
                         match_shift, tid_shift, intron_shift, exon_start_shift, delta_AS_shift, LLR_shift
         
-        # only correct read with soft-clipped bases >= 5bp
-        if softclip_5 >= 5:
+        # only correct read with soft-clipped bases >= min_softclip
+        if softclip_5 >= min_softclip:
             threshold_len = min(softclip_5, 50)
             modify_5 = (best_5_match >= match_ratio and best_5_LLR >= thresholds[threshold_len]) or best_5_match == 1
         else:
             modify_5 = False
 
-        if softclip_3 >= 5:
+        if softclip_3 >= min_softclip:
             threshold_len = min(softclip_3, 50)
             modify_3 = (best_3_match >= match_ratio and best_3_LLR >= thresholds[threshold_len]) or best_3_match == 1
         else:
@@ -713,6 +722,9 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             total_processed_reads.append(read)
             continue
 
+        corrected_5_bp = softclip_5 if modify_5 else 0
+        corrected_3_bp = softclip_3 if modify_3 else 0
+
         # correct CIGAR
         new_cigar = list(cigar_tuples)
         new_pos = read.reference_start
@@ -735,7 +747,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
             
             new_pos = best_5_exon_start
             current_AS = read.get_tag('AS')
-            read.set_tag('AS', int(current_AS + best_5_delta_AS), value_type='i')
+            read.set_tag('AS', int(current_AS + best_5_delta_AS) - 8, value_type='i') #Gap Penalty panel 8
         
         if modify_3:
             if new_cigar[-1][0] == 4:
@@ -754,33 +766,33 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                 new_cigar.append((0, softclip_3))  # M
 
             current_AS = read.get_tag('AS')
-            read.set_tag('AS', int(current_AS + best_3_delta_AS), value_type='i')
+            read.set_tag('AS', int(current_AS + best_3_delta_AS) - 8, value_type='i') #Gap Penalty panel 8
 
         # update read information
         read.cigartuples = new_cigar
         read.reference_start = new_pos
 
         if modify_5 and modify_3:
-            read.set_tag('SC', "YES_53_" + max_str)
+            read.set_tag('SC', "YES_53_" + max_str + "_CORR_" + str(corrected_5_bp + corrected_3_bp) + "bp")
             total_processed_reads.append(read)
             continue
 
         elif modify_5:
             if need_shift_5:
-                read.set_tag('SC', "YES_5_shift_" + max_str)
+                read.set_tag('SC', "YES_5_shift_" + max_str + "_CORR_" + str(corrected_5_bp) + "bp")
             else:
-                read.set_tag('SC', "YES_5_" + max_str)
+                read.set_tag('SC', "YES_5_" + max_str + "_CORR_" + str(corrected_5_bp) + "bp")
 
         elif modify_3:
             if need_shift_3:
-                read.set_tag('SC', "YES_3_shift" + max_str)     
+                read.set_tag('SC', "YES_3_shift_" + max_str + "_CORR_" + str(corrected_3_bp) + "bp")     
             else:
-                read.set_tag('SC', "YES_3_" + max_str)                    
+                read.set_tag('SC', "YES_3_" + max_str + "_CORR_" + str(corrected_3_bp) + "bp")                    
         process_in_splice.append(read)
 
 
-    ################## correct fake softclip by match previous or next genome region #######################################
-    ################## correct fake softclip by match previous or next genome region #######################################
+    ################## correct softclip by match previous or next genome region #######################################
+    ################## correct softclip by match previous or next genome region #######################################
     for read in process_in_splice:
         chrome = read.reference_name
         seq = read.query_sequence   
@@ -793,24 +805,31 @@ def correct_softclip_chunk(reads, ref_fasta_path,
         soft_regions = process_softclip_from_genome(read, ref_fasta,tolerate_c2u)
         
         if not soft_regions:
-            read.set_tag('SC', "NO")
-            total_processed_reads.append(read)
-            continue
+            sctag = read.get_tag('SC')
+            if 'YES' in sctag:
+                total_processed_reads.append(read)
+                continue
+            else:
+                read.set_tag('SC', "NO")
+                total_processed_reads.append(read)
+                continue
         
 
         AS_changes = 0
         corrected = False
+        corrected_bp = 0
         new_cigar = list(cigar_tuples)  
         result_record = []
 
         for (soft_seq, ref_seq,mismatch_count,matchratio, sc_type) in soft_regions:
             soft_len = len(soft_seq)
 
-            if soft_len < 5: 
+            if soft_len < min_softclip: 
                 continue
 
             elif matchratio >= 0.95: #softclip region highly match to genome region
                 corrected = True
+                corrected_bp += soft_len
                 AS_delta = (soft_len - mismatch_count) - mismatch_count
                 AS_changes += AS_delta
                     
@@ -840,6 +859,7 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                     threshold = thresholds[threshold_len]
                     if (best_interval['log_lr'] >= threshold and sub_matchratio >= match_ratio) or sub_matchratio == 1:
                         corrected = True
+                        corrected_bp += best_interval['length']
                         AS_delta = (best_interval['length'] - sub_mismatches) - sub_mismatches
                         AS_changes += AS_delta
                         if sc_type == '5prime':
@@ -893,9 +913,9 @@ def correct_softclip_chunk(reads, ref_fasta_path,
                 best_index = all_match_ratio.index(best_match)
                 match_tag = result_record[best_index][2] + "_" + result_record[best_index][3]
                 if 'sub' in match_tag:
-                    read.set_tag('SC', splicetag + "_YES_" + str(best_match) + "_" + match_tag)
+                    read.set_tag('SC', splicetag + "_YES_" + str(best_match) + "_" + match_tag + "_CORR_" + str(corrected_bp) + "bp")
                 else:
-                    read.set_tag('SC', splicetag + "_YES_" + str(best_match))
+                    read.set_tag('SC', splicetag + "_YES_" + str(best_match) + "_CORR_" + str(corrected_bp) + "bp")
             else:
                 best_match = max([r[1] for r in result_record])
                 read.set_tag('SC', splicetag + "_NO_" +  str(best_match))
@@ -978,14 +998,14 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
 
     exons_by_transcript, splice_sites = load_exons_and_splice_sites(gtffile)
 
-    print("Precomputing strand-specific parameters from first 2,000,000 aligned reads...")
+    print("Precomputing strand-specific parameters from first 10,000,000 aligned reads...")
     
-    pos_theta, neg_theta, pos_log_theta, neg_log_theta = compute_softclip_base_freq(sam_input, n_reads=2000000)
+    pos_theta, neg_theta, pos_log_theta, neg_log_theta = compute_softclip_base_freq(sam_input, n_reads=10000000)
     print(f"\nPositive strand softclip region base frequencies (H0): {pos_theta}")
     print(f"Negative strand softclip region base frequencies (H0): {neg_theta}")
 
     pos_transfer_matrix, neg_transfer_matrix, pos_log_transfer_matrix, neg_log_transfer_matrix = build_strand_specific_transfer_matrices(
-        sam_input, reference_fasta, n_reads=2000000
+        sam_input, reference_fasta, n_reads=10000000
     )
     
     print("\nPositive strand transfer matrix (H1:ref → read):")
@@ -1005,7 +1025,7 @@ def main(sam_input, reference_fasta, output_sam, chunk_size=chunk_size, alpha=pv
 
 
     print("\nSimulating H0 distribution for LR thresholds:")    
-    len_list = [i for i in range(5, 51)]  # if sotflen > 50 treated as 50
+    len_list = [i for i in range(min(min_softclip, 50), 51)]  # if softlen > 50 treated as 50
     N_SIM = 100000  # 1×10^-5
     np.random.seed(22)
 
@@ -1110,6 +1130,3 @@ if __name__ == "__main__":
     start_time = time.time()
     main(insam, genomefile, output_sam)
     print(f"Total execution time: {time.time() - start_time:.2f} seconds")
-
-
-

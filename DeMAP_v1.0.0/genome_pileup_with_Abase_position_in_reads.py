@@ -89,7 +89,11 @@ def worker(conting,start,stop):
                             has_3prime_softclip = (cigartuples[-1][0] == 4)
 
 
-                            ref_slice = str(ref_seq[align_start:align_end]).upper()
+                            #ref_slice = str(ref_seq[align_start:align_end]).upper()
+                            ref_start = pileupread.alignment.reference_start
+                            ref_end = pileupread.alignment.reference_end
+                            ref_slice = str(ref_seq[ref_start:ref_end]).upper()
+
                             total_ref_A = ref_slice.count('A')
                             total_ref_T = ref_slice.count('T')
 

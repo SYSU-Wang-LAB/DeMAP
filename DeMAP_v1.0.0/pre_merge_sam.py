@@ -24,7 +24,7 @@ parser.add_argument("-pre", "--outname_prefix", nargs="?", type=str, default='de
 parser.add_argument("-o", "--outputdir", nargs="?", type=str, default="none", help="outputdir")
 
 
-parser.add_argument("-d", "--diff", type=int, default=6, help="score difference to filter secondary alignments (default: 6)")
+parser.add_argument("-d", "--diff", type=int, default=4, help="score difference to filter secondary alignments (default: 4)")
 parser.add_argument("-m", "--min_score", type=int, default=20, help="minimum max-AS score required for a read to be kept (default: 20)")
 
 args = parser.parse_args()

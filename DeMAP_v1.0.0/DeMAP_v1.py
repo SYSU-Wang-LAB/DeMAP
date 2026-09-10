@@ -21,7 +21,7 @@ Required = parser.add_argument_group("Required Parameters")
 Required.add_argument("-software", "--software", type=str, help="The path to the tool directory.")
 Required.add_argument("-genomedir", "--genomedir", type=str, help = "The path to the genome index directory.")
 Required.add_argument("-fa","--fasta",type=str,help="Unconverted genome file in FASTA format.")
-Required.add_argument("-gtf", "--gtf", nargs="?", type=str, help = "GTF file from gencode")
+Required.add_argument("-gtf", "--gtf", nargs="?", type=str, default="none", help = "GTF file from gencode")
 Required.add_argument("-q", "--fastq", type=str, help="Fastq file for single-end data; read should be same direction to sense strand.\n"
                     "For most widely used stranded library, dUTP-based method and SMART mothod: R2. Input files in gzip format (.gz) are supported.")
 Required.add_argument("-pre", "--outname_prefix", type=str,  help="Output name prefix")
@@ -42,7 +42,7 @@ mapping.add_argument("--re_align", action="store_true", help="If specified, spli
 correct_softclip = parser.add_argument_group("Correct softclip due to C-to-U mutation")
 correct_softclip.add_argument("-SC_pval", "--SC_pval", nargs="?", type=str, default="0.001", help="P-value for the cutoff of LLR test. (default:0.001)")
 correct_softclip.add_argument("-match_ratio", "--match_ratio", nargs="?", type=str, default="0.8", help="The minimum ratio of bases match to reference in softclip region. (default:0.8)")
-
+correct_softclip.add_argument("-minSC", "--min_softclip", nargs="?", type=str, default='5', help = "The minimum softclip length included in correction. (default:5)")
 
 
 # merge and split reads
@@ -50,7 +50,7 @@ merge_alignemts = parser.add_argument_group("Merge AG,TC alignemts and reclassif
 merge_alignemts.add_argument("-s1", "--score1", type=str, default='2', 
                     help="Discard low-quality alignments with AS (alignment score) < max(AS) - score1 in a multi-mapping read. (default:2)\n"
                          "This parameter removes low-quality secondary alignments from multiply aligned reads.")
-merge_alignemts.add_argument("-s2", "--minScore", type=str, default='24', help="Discard a read if its AS < minScore in all alignments of that read. (default:24)\n"
+merge_alignemts.add_argument("-s2", "--minScore", type=str, default='22', help="Discard a read if its AS < minScore in all alignments of that read. (default:22)\n"
                     "For STAR aligner, The AS equals matched bases minus penalty terms (mismatches, insertions, deletions, soft clipping, and splice junctions).")
 
 # run EM model
@@ -67,7 +67,7 @@ calling_methy = parser.add_argument_group("Calling methylation.\n"
                                           "When methylated sites meet the thresholds simultaneously, the priority is: m6Am > m1A >  m6A")
 calling_methy.add_argument("-max_A",dest="max_A",type=str,default='3',help="Filter reads containing more than max_A unconverted A bases. (default=3)\n"
                             "Reads with more than max_A unconverted A bases may not be fully converted.")
-calling_methy.add_argument("-max_A_ratio","--max_A_ratio",type=str, default='0.6',help="Filter sites with max_A reads /total reads > max_A_ratio.(default:0.6)\n"
+calling_methy.add_argument("-max_A_ratio","--max_A_ratio",type=str, default='0.4',help="Filter sites with max_A reads /total reads > max_A_ratio.(default:0.4)\n"
                             "This parameter filters out modified sites resulting from incomplete conversion.")
 calling_methy.add_argument("-min_convert", dest="min_convert", type=str, default='0.8', help="Keep reads with conversion rate >= this value even if unconverted A > max_A. default=0.8")
 
@@ -76,7 +76,7 @@ calling_methy.add_argument("--rm_5end_softclip", action="store_true", help="If s
 calling_methy.add_argument("-AGcov","--AGCoverage",type=str, default='15',help="Minimum A + G counts. (default:15)")
 calling_methy.add_argument("-Acov","--ACoverage",type=str, default='5',help="Minimum A counts. (default:5)")
 calling_methy.add_argument("-ratio","--ARatio",type=str, default='0.05',help="Minimum methylation level: A counts / AG counts. (default:0.05)")
-calling_methy.add_argument("-enrich","--foldenrich",type=str, default='3',help="Minimum fold change between methylation level and background methylation level. (default:3)")
+calling_methy.add_argument("-enrich","--foldenrich",type=str, default='5',help="Minimum fold change between methylation level and background methylation level. (default:5)")
 calling_methy.add_argument("-AGRatio","--AGRatio",type=str, default='0.6',help="Filter sites with A+G counts/total counts < AGRatio. (default:0.6)\n"
                             "This parameter filters out mutation sites caused by SNPs.")
 calling_methy.add_argument("-A_neighbor","--A_neighbor",type=str, default='50',help="Number of A bases in the vicinity (on both sides) used as background.\n"
@@ -114,7 +114,7 @@ outname_prx = args.outname_prefix
 ####### correct softclip due to C-to-U mutation 
 SC_pval = args.SC_pval
 match_ratio = args.match_ratio
-
+min_softclip = args.min_softclip
 
 ########### # merge and split reads
 score1 = args.score1
@@ -168,10 +168,10 @@ if __name__ == "__main__":
         sys.stderr.write("[%s] Start mapping reads\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         if re_align:
             command_mappingreads = "python " + tooldir+"/" + "mapping_reads_and_correct_softclip.py -software " + tooldir + " -q " + fastq + " -p " + Threads + " -genomedir " + genomedir + \
-            " -fa " + genome + " -gtf " + gtf_file + " -m " + mismatch + " -max " + maxmap + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -pre " + outname_prx + " -o " + outputdir + " -s1 " + score1 + " -s2 " + score2 + " --re_align "
+            " -fa " + genome + " -gtf " + gtf_file + " -m " + mismatch + " -max " + maxmap + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -minSC " + min_softclip + " -pre " + outname_prx + " -o " + outputdir + " -s1 " + score1 + " -s2 " + score2 + " --re_align "
         else:
             command_mappingreads = "python " + tooldir+"/" + "mapping_reads_and_correct_softclip.py -software " + tooldir + " -q " + fastq + " -p " + Threads + " -genomedir " + genomedir + \
-            " -fa " + genome + " -gtf " + gtf_file + " -m " + mismatch + " -max " + maxmap + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -pre " + outname_prx + " -o " + outputdir + " -s1 " + score1 + " -s2 " + score2
+            " -fa " + genome + " -gtf " + gtf_file + " -m " + mismatch + " -max " + maxmap + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -minSC " + min_softclip + " -pre " + outname_prx + " -o " + outputdir + " -s1 " + score1 + " -s2 " + score2
         subprocess.call(command_mappingreads, shell=True)
         sys.stderr.write("[%s] mapping reads done.\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
 

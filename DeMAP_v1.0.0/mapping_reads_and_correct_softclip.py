@@ -33,7 +33,7 @@ group1.add_argument("-q", "--fastq", type=str, default="none", help="Fastq file 
 group1.add_argument("-p", "--Threads", type=str, default='1', help="The number of alignment threads. (defalut:1)")
 group1.add_argument("-t", "--tools", type=str, default="STAR", help="Alignment tools: STAR,bowtie2. (defalut:STAR)")
 group1.add_argument("-m", "--mismatch", type=int, default=2, help="Mapping mismatch. (defalut:2)")
-group1.add_argument("-F", "--FilterN", type=str, default='0.5', help="MinOverLread. (defalut:0.5)")
+group1.add_argument("-F", "--FilterN", type=str, default='0.4', help="MinOverLread. (defalut:0.4)")
 group1.add_argument("-max", "--maxmap", type=str, default='5', help="Discard multi-mapping reads with more than maxmap mappings. (defalut:5)")
 group1.add_argument("-pre", "--outname_prefix", type=str, default='default', help="Output name prefix")
 group1.add_argument("-o", "--outputdir", type=str, default="none", help="Output directory")
@@ -43,15 +43,15 @@ group2 = parser.add_argument_group("Correct softclip due to C-to-U mutation")
 group2.add_argument("-gtf", "--gtf", nargs="?", type=str, default="none", help = "GTF file from gencode")
 group2.add_argument("-SC_pval", "--SC_pval", nargs="?", type=str, default="0.001", help="P-value for the cutoff of LLR test. (default:0.001)")
 group2.add_argument("-match_ratio", "--match_ratio", nargs="?", type=str, default="0.80", help="The minimum ratio of bases match to reference in softclip region. (default:0.80)")
-
+group2.add_argument("-minSC", "--min_softclip", nargs="?", type=str, default='5', help = "The minimum softclip length included in correction. (default:5)")
 
 # merge and split reads
 group3 = parser.add_argument_group("Merge AG,TC alignemts and reclassify reads into uniq/multi-mapping reads")
 group3.add_argument("-s1", "--compareScore", type=str, default='2', 
                     help="Discard alignment with AS (alignment score) < max(AS) - compareScore in a multi-mapping read\n"
                          "(2 in default: Remove alignments with AS at least 2 points lower than the best alignment of that read)")
-group3.add_argument("-s2", "--minScore", type=str, default='24', 
-                    help="Discard read if AS < minScore in all alignments of that read (defalut:24).\n"
+group3.add_argument("-s2", "--minScore", type=str, default='22', 
+                    help="Discard read if AS < minScore in all alignments of that read (defalut:22).\n"
                     "For STAR aligner,The AS equals matched bases minus penalty terms (mismatches, insertions, deletions, soft clipping, and splice junctions)")
 
 # re-alignment of unmap reads
@@ -84,6 +84,7 @@ re_align = args.re_align
 SC_pval = args.SC_pval
 match_ratio = args.match_ratio
 gtf_file = args.gtf
+min_softclip = args.min_softclip
 
 score1 = args.compareScore
 score2 = args.minScore
@@ -193,7 +194,7 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,maxmap,fl
     out_maxmap = "10" if int(maxmap) <= 5 else "20"
 
 
-    if tool == "bowtie2":  # 兼容如果你在命令行里传了 bowtie2
+    if tool == "bowtie2":  
         para_0 = 'bowtie2 -p ' + str(Threads)
         para_A = ' -x ' + reference + ' -U ' + fastq
         para_B = ' --no-unal -S ' + tmpfile
@@ -212,7 +213,7 @@ def mapping_files(tool,fastq,reference,Threads,muta_N,fqname,outputdir,maxmap,fl
     elif tool == "STAR":
         para_0 = "STAR --runThreadN "+ Threads
         para_g = " --genomeDir "+ reference[:-3]
-        para_A = " --limitOutSJcollapsed 5000000 "
+        para_A = " --limitOutSJcollapsed 5000000 --outFilterMultimapScoreRange 4 " #--outFilterScoreMin "  + score2
         para_B = " --outFilterMismatchNmax " + str(muta_N)  ### mismatch number
         para_B_1=' --outFilterScoreMinOverLread '+FilterN+' --outFilterMatchNminOverLread '+FilterN+' --seedSearchStartLmax 30 '# mean mapping score/mean mapping base ratio/increase overall mapping sensitivity
         para_C = " --outSAMattributes All --outSAMprimaryFlag AllBestScore --outMultimapperOrder Random --outSAMmultNmax " + out_maxmap + " --outSAMtype BAM Unsorted"
@@ -371,18 +372,19 @@ if __name__ == "__main__":
         p1.join() 
         p2.join()
 
-    ############ **********  merge reads mapping to A-to-G converted genome and reads mapping to T-to-C converted genome  ********** ############ 
-    sys.stderr.write("[%s] merge AG and TC alignments...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-    command_pre_merge = "python " + tooldir + "/pre_merge_sam.py"+ " -AG " + reverse_samAG  + " -TC " + reverse_samTC  + " -genome " + genome + \
-    " -pre " + outname_prx  + " -o " + outputdir2 + " -m " + score2
-    subprocess.call(command_pre_merge, shell=True)
+        ############ **********  merge reads mapping to A-to-G converted genome and reads mapping to T-to-C converted genome  ********** ############ 
+        sys.stderr.write("[%s] merge AG and TC alignments...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        command_pre_merge = "python " + tooldir + "/pre_merge_sam.py"+ " -AG " + reverse_samAG  + " -TC " + reverse_samTC  + " -genome " + genome + \
+        " -pre " + outname_prx  + " -o " + outputdir2 + " -m " + score2
+        subprocess.call(command_pre_merge, shell=True)
+        subprocess.call("rm -rf " + reverse_samAG + " " + reverse_samTC, shell=True)
 
     ############ **********  correct sotfclip due to C-to-U mutation  ********** ############    
     sys.stderr.write("[%s] Start correct sotfclip due to C-to-U mutation \n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     merge_sam = final_out_prx + "_merge_AG_TC.sam"
     correct_merge = final_out_prx + "_merge_AG_TC_correct.sam"
     command_correct1 = "python " + tooldir + "/correct_softclip_and_calculate_AS.py" + " -insam " + merge_sam  + \
-      " -genome " + genome + " --Threads " + Threads +  " -outname " + correct_merge + " -gtf " + gtf_file + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio
+      " -genome " + genome + " --Threads " + Threads +  " -outname " + correct_merge + " -gtf " + gtf_file + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -minSC " + min_softclip
     print(command_correct1)
     subprocess.call(command_correct1, shell=True)
     subprocess.call("rm  " + merge_sam, shell=True)
@@ -396,7 +398,7 @@ if __name__ == "__main__":
     uniqmap = final_out_prx + "_" + "uniq_map.sam"
     multimap = final_out_prx + "_" + "multi_map.sam"
 
-
+    subprocess.call("rm  " + correct_merge, shell=True)
 
     if re_align:
         mismatch = mismatch if mismatch <= 2 else 2
@@ -453,7 +455,7 @@ if __name__ == "__main__":
         merge_sam = final_out_prx + "_realign_merge_AG_TC.sam"
         correct_merge = final_out_prx + "_realign_merge_AG_TC_correct.sam"
         command_correct1 = "python " + tooldir + "/correct_softclip_and_calculate_AS.py" + " -insam " + merge_sam  + \
-        " -genome " + genome + " --Threads " + Threads +  " -outname " + correct_merge + " -gtf " + gtf_file + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio
+        " -genome " + genome + " --Threads " + Threads +  " -outname " + correct_merge + " -gtf " + gtf_file + " -SC_pval " + SC_pval + " -match_ratio " + match_ratio + " -minSC " + min_softclip
         print(command_correct1)
         subprocess.call(command_correct1, shell=True)
 
@@ -478,7 +480,7 @@ if __name__ == "__main__":
     ### mapping information
     subprocess.call("mkdir -p "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
     subprocess.call("mv "+final_out_prx+"_AG*out "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
-    subprocess.call("mv "+final_out_prx+"*put "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
+    #subprocess.call("mv "+final_out_prx+"*put "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
     subprocess.call("mv "+final_out_prx+"_AG*tab "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
     subprocess.call("mv "+final_out_prx+"_TC*out "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
     subprocess.call("mv "+final_out_prx+"_TC*tab "+outputdir2+"/mapping-info_"+outname_prx, shell=True)
@@ -486,8 +488,7 @@ if __name__ == "__main__":
     ### remove tmp file
     subprocess.call("rm -rf " + final_out_prx + "_AG*_STARtmp", shell=True)
     subprocess.call("rm -rf " + final_out_prx + "_TC*_STARtmp", shell=True)
-    subprocess.call("rm -rf " + final_out_prx+"_AG_r.sam " + final_out_prx+ "_AG_r_correct.sam " + final_out_prx+"_AG_unmap.fq " + final_out_prx+ "_TC_unmap.fq " + final_out_prx + "_merge_AG_TC_correct.sam", shell=True)
-    subprocess.call("rm -rf " + final_out_prx+"_TC_r.sam " + final_out_prx+ "_TC_r_correct.sam ", shell=True)
+    subprocess.call("rm -rf " + final_out_prx+"_AG_unmap.fq " + final_out_prx+ "_TC_unmap.fq " , shell=True)  #+ final_out_prx + "_merge_AG_TC_correct.sam "
     subprocess.call("rm -rf " + final_out_prx+"*_r.sam " + final_out_prx+"*_AG_unmap.fq " + final_out_prx+ "*_TC_unmap.fq ", shell=True)
 
     sys.stderr.write("[%s]Mapping reads done !!!...\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
