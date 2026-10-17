@@ -199,4 +199,4 @@ If you encounter any bugs, have questions, or would like to suggest new features
 ## 📜 License
 DeMAP is released under the MIT License.
 
-We sincerely thank the authors of GLORI-tools for making their source code publicly available, which greatly facilitated the development of our index-building and mapping modules.
+We sincerely thank the authors of GLORI-tools (https://github.com/liucongcas/GLORI-tools) for making their source code publicly available, which greatly facilitated the development of our index-building and mapping modules.
