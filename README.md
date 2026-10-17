@@ -50,7 +50,7 @@ cd DeMAP-main
 **Option 2: Clone via Git**
 Alternatively, you can clone the repository using Git:
 ```bash
-git clone https://github.com/ZehongW/DeMAP.git
+git clone https://github.com/SYSU-Wang-LAB/DeMAP.git
 cd DeMAP
 ```
 
