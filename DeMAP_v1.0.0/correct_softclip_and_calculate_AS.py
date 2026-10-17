@@ -46,8 +46,8 @@ C2Ulevel = args.c2u_rate_threshold
 outbam = args.bam
 
 BASE_TO_IDX = {'A': 0, 'T': 1, 'C': 2, 'G': 3}
-EPSILON = 1e-5
-BOOTSTRAP_N_SIM = args.bootstrap_n  # Set --bootstrap_n 10000 to reduce simulation count.
+EPSILON = 1e-5 # 
+BOOTSTRAP_N_SIM = args.bootstrap_n  # Set --bootstrap_n 10000 to reduce simulation.
 BOOTSTRAP_BATCH_SIZE = 2000  # Simulate in small batches to limit temporary memory.
 BOOTSTRAP_CACHE_SIZE = 1000  # Maximum cached reference conditions per chunk and strand.
 
