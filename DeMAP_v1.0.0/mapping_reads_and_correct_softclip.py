@@ -234,9 +234,9 @@ def return_A_to_samfile(samfile,output_bed,base_to_change): # could be used to m
     reverse_sam = samfile[:-4] + "_r.sam"
     with open(reverse_sam, 'w') as OUTPUT, open(samfile, 'r') as file1, open(output_bed, 'r') as file2:
         sam_line = file1.readline().rstrip()
-        read_line = file2.readline().rstrip() # 读取bed 第一行
-        read_id = read_line.split()[0] # 读取bed 第一行 readid
-        read_A_pos = read_line.split()[1] # 读取bed 第一行 A的位置
+        read_line = file2.readline().rstrip() 
+        read_id = read_line.split()[0] 
+        read_A_pos = read_line.split()[1] 
 
         while sam_line and sam_line[0] == "@":
             OUTPUT.write(sam_line+"\n")
@@ -247,7 +247,7 @@ def return_A_to_samfile(samfile,output_bed,base_to_change): # could be used to m
             sam_readid = sam_info[0]
             sam_readseq = sam_info[9]
             if sam_readid == read_id:
-                if read_A_pos == "NA":  # 没有A不用修改
+                if read_A_pos == "NA":  
                     OUTPUT.write(sam_line+"\n")
                     sam_line = file1.readline().rstrip()
                 else:
@@ -311,8 +311,8 @@ if __name__ == "__main__":
 
     outputdir2 = outputdir+"/"
     final_out_prx = outputdir2 + "/" + outname_prx
-    changefastq = final_out_prx + "_" + "AGchanged_2.fq"   ### sgNC_37c_combine_AGchanged_2.fq
-    output_bed = final_out_prx + "_A.bed"   #sgNC_37c_combine_A.bed_sorted
+    changefastq = final_out_prx + "_" + "AGchanged_2.fq"  
+    output_bed = final_out_prx + "_A.bed"   
     if os.path.isfile(changefastq) or os.path.isfile(changefastq+'.gz'):
         sys.stderr.write("[%s] Warning：the changed files already exists, skip this precess\n" % strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
         pass
