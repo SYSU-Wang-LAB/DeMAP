@@ -185,8 +185,16 @@ If you use DeMAP in your research, please cite:
 
 [Author Names]. Computational framework for deamination-based RNA adenosine methylation analysis. (Manuscript in preparation)
 
-## 🤝 Maintainers
-DeMAP is developed and maintained by Zehong Wu (wuzh93@mail2.sysu.edu.cn).
+## 📬 Contacts
+
+- Zehong Wu: [wuzh93@mail2.sysu.edu.cn](mailto:wuzh93@mail2.sysu.edu.cn)
+- Jinkai Wang: [wangjk@mail.sysu.edu.cn](mailto:wangjk@mail.sysu.edu.cn)
+
+## 🤝 Contributors
+
+DeMAP is developed and maintained by Zehong Wu and Jinkai Wang. We welcome feedback and contributions from the community to help improve the software and its documentation.
+
+If you encounter any bugs, have questions, or would like to suggest new features, please open an issue on GitHub. You are also welcome to submit pull requests for bug fixes, documentation improvements, and new functionality. Thank you for your interest in and support of DeMAP!
 
 ## 📜 License
 DeMAP is released under the MIT License.
